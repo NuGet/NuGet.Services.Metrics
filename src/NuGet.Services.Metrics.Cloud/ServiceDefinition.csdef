@@ -1,0 +1,14 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<ServiceDefinition name="NuGet.Services.Metrics.Cloud" xmlns="http://schemas.microsoft.com/ServiceHosting/2008/10/ServiceDefinition" schemaVersion="2013-10.2.2">
+  <WorkerRole name="NuGet.Services.Metrics" vmsize="Small">
+    <Imports>
+      <Import moduleName="Diagnostics" />
+    </Imports>
+    <Endpoints>
+      <InputEndpoint name="http" protocol="http" port="80" />
+    </Endpoints>
+    <ConfigurationSettings>
+      <Setting name="Metrics.SqlServer" />
+    </ConfigurationSettings>
+  </WorkerRole>
+</ServiceDefinition>
