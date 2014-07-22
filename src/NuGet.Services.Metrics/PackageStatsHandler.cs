@@ -19,6 +19,8 @@ namespace NuGet.Services.Metrics
         private readonly MetricsStorage _metricsStorage;
         private int _count = 0;
         private const string HTTPPost = "POST";
+        private static readonly PathString Root = new PathString("/");
+        private static readonly PathString DownloadEvent = new PathString("/DownloadEvent");
 
         public PackageStatsHandler()
         {
@@ -32,17 +34,28 @@ namespace NuGet.Services.Metrics
 
         public async Task Invoke(IOwinContext context)
         {
-            if(context.Request.Method != HTTPPost)
+            if (context.Request.Path.StartsWithSegments(Root))
             {
-                throw new InvalidOperationException("Only POST is accepted");
+                context.Response.StatusCode = (int)HttpStatusCode.OK;
             }
-
-            using (var streamReader = new StreamReader(context.Request.Body))
+            else if (context.Request.Path.StartsWithSegments(DownloadEvent))
             {
-                var jsonString = await streamReader.ReadToEndAsync();
-                var jObject = JObject.Parse(jsonString);
-                Task.Run(() => Process(jObject));
-                context.Response.StatusCode = (int)HttpStatusCode.Accepted;
+                if (context.Request.Method != HTTPPost)
+                {
+                    throw new InvalidOperationException("Only POST is accepted");
+                }
+
+                using (var streamReader = new StreamReader(context.Request.Body))
+                {
+                    var jsonString = await streamReader.ReadToEndAsync();
+                    var jObject = JObject.Parse(jsonString);
+                    Task.Run(() => Process(jObject));
+                    context.Response.StatusCode = (int)HttpStatusCode.Accepted;
+                }
+            }
+            else
+            {
+                context.Response.StatusCode = (int)HttpStatusCode.NotFound;
             }
         }
 
