@@ -66,8 +66,16 @@ namespace NuGet.Services.Metrics
         private string GetSqlConnectionString()
         {
             const string SqlConfigurationKey = "Metrics.SqlServer";
-            //string connectionString =  RoleEnvironment.GetConfigurationSettingValue(SqlConfigurationKey);            
-            return "Data Source=(LocalDB)\\v11.0;Integrated Security=SSPI;Initial Catalog=NuGetGallery";
+            string connectionString = null;
+            try
+            {
+                connectionString = RoleEnvironment.GetConfigurationSettingValue(SqlConfigurationKey);
+            }
+            catch (Exception ex)
+            {
+                connectionString = "Data Source=(LocalDB)\\v11.0;Integrated Security=SSPI;Initial Catalog=NuGetGallery";
+            }
+            return connectionString;
         }
     }
 }

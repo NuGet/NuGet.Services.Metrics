@@ -4,7 +4,7 @@
     <Instances count="1" />
     <ConfigurationSettings>
       <Setting name="Microsoft.WindowsAzure.Plugins.Diagnostics.ConnectionString" value="UseDevelopmentStorage=true" />
-      <Setting name="Metrics.SqlServer" value="Data Source=(LocalDB)\v11.0;Integrated Security=SSPI;Initial Catalog=NuGetGallery"/>
+      <Setting name="Metrics.SqlServer" value="Data Source=(LocalDB)\\v11.0;Integrated Security=SSPI;Initial Catalog=NuGetGallery"/>
     </ConfigurationSettings>
   </Role>
 </ServiceConfiguration>
