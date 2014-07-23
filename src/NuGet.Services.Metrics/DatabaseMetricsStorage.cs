@@ -4,7 +4,6 @@ using System.Data.SqlClient;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Dapper;
 using Newtonsoft.Json.Linq;
 
 namespace NuGet.Services.Metrics
@@ -12,17 +11,19 @@ namespace NuGet.Services.Metrics
     public class DatabaseMetricsStorage : MetricsStorage
     {
         private const string UnknownIPAddress = "unknown";
-        private const string InsertQuery = @"INSERT INTO PackageStatistics
+        private const string NullString = "null";
+        private const string SqlStringFormat = "'{0}'";
+        private const string InsertQueryStringFormat = @"INSERT INTO PackageStatistics
 (PackageKey, IPAddress, UserAgent, Operation, DependentPackage, ProjectGuids)
-VALUES(@packageKey, @ipAddress, @userAgent, @operation, @dependentPackage, @projectGuids)";
-
-        private const string PackageKeyGetQuery = @"SELECT		[Key]
+VALUES(
+(SELECT		[Key]
 FROM		Packages
 WHERE		[PackageRegistrationKey] IN
 (SELECT		[Key]
 FROM		PackageRegistrations
-WHERE		Id = @id)
-AND			NormalizedVersion = @normalizedVersion";
+WHERE		Id = {0})
+AND			NormalizedVersion = {1})
+, {2}, {3}, {4}, {5}, {6})";
 
         private readonly SqlConnectionStringBuilder _cstr;
 
@@ -43,17 +44,30 @@ AND			NormalizedVersion = @normalizedVersion";
             var dependentPackage = JTokenToString(jObject[DependentPackageKey]);
             var projectGuids = JTokenToString(jObject[ProjectGuidsKey]);
 
+            var insertQuery = String.Format(InsertQueryStringFormat,
+                SqlStringify(id),
+                SqlStringify(version),
+                SqlStringify(ipAddress),
+                SqlStringify(userAgent),
+                SqlStringify(operation),
+                SqlStringify(dependentPackage),
+                SqlStringify(projectGuids));
+
             using (var connection = new SqlConnection(_cstr.ConnectionString))
             {
                 await connection.OpenAsync();
-                var result = await connection.QueryAsync<int>(PackageKeyGetQuery, new { id = id, normalizedVersion = version });
-                int packageKey = result.SingleOrDefault();
-                if(packageKey != 0)
-                {
-                    await connection.QueryAsync<int>(InsertQuery, new { packageKey = packageKey, ipAddress = ipAddress, userAgent = userAgent, operation = operation, dependentPackage = dependentPackage, projectGuids = projectGuids});
-                }
+                var command = new SqlCommand(insertQuery, connection);
+                await command.ExecuteNonQueryAsync();
                 connection.Close();
             }
+        }
+
+        private string SqlStringify(string param)
+        {
+            if (param == null)
+                return NullString;
+
+            return String.Format(SqlStringFormat, param);
         }
     }
 }
