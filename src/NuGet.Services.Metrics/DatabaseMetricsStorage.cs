@@ -37,7 +37,7 @@ AND			NormalizedVersion = @normalizedVersion";
             // NEED to normalize
             var version = jObject[VersionKey].ToString();
 
-            var ipAddress = JTokenToString(jObject[IPAddressKey]) ?? UnknownIPAddress;
+            var ipAddress = UnknownIPAddress; // Always store "unknown" as the IPAddress
             var userAgent = JTokenToString(jObject[UserAgentKey]);
             var operation = JTokenToString(jObject[OperationKey]);
             var dependentPackage = JTokenToString(jObject[DependentPackageKey]);
@@ -50,7 +50,7 @@ AND			NormalizedVersion = @normalizedVersion";
                 int packageKey = result.SingleOrDefault();
                 if(packageKey != 0)
                 {
-                    await connection.QueryAsync<int>(InsertQuery, new { packageKey = packageKey, ipAddress = ipAddress, userAgent = userAgent, operation = operation, dependentPackage = dependentPackage, projectGuids});
+                    await connection.QueryAsync<int>(InsertQuery, new { packageKey = packageKey, ipAddress = ipAddress, userAgent = userAgent, operation = operation, dependentPackage = dependentPackage, projectGuids = projectGuids});
                 }
                 connection.Close();
             }
