@@ -33,7 +33,8 @@ namespace NuGet.Services.Metrics
             return jObject;
         }
 
-        async Task<HttpStatusCode> Post(string id, string version, string ipAddress, string userAgent, string operation, string dependentPackage, string projectGuids, string uri)
+        async Task<HttpStatusCode> Post(string id, string version, string ipAddress, string userAgent, string operation, string dependentPackage, string projectGuids, string uri,
+            bool nonJSONRequest = false, bool nonPostRequest = false)
         {
             Console.WriteLine("Posting");
             var jObject = GetJObject(id, version, ipAddress, userAgent, operation, dependentPackage, projectGuids);
@@ -42,18 +43,27 @@ namespace NuGet.Services.Metrics
             {
                 Console.WriteLine("Using HttpClient");
                 Console.WriteLine("Requesting response...");
-                var response = await client.PostAsync(uri, new StringContent(jObject.ToString(), Encoding.Default, "application/json"));
+                HttpResponseMessage response;
+                if (nonPostRequest)
+                {
+                    response = await client.GetAsync(uri);
+                }
+                else
+                {
+                    response = await client.PostAsync(uri, new StringContent(nonJSONRequest ? "blah" : jObject.ToString(), Encoding.Default, "application/json"));
+                }
                 Console.WriteLine(response.StatusCode);
                 Console.WriteLine("Received response");
                 return response.StatusCode;
             }
         }
 
-        async Task RunScenario(string scenario, HttpStatusCode expected, string id, string version, string ipAddress, string userAgent, string operation, string dependentPackage, string projectGuids, string uri)
+        async Task RunScenario(string scenario, HttpStatusCode expected, string id, string version, string ipAddress, string userAgent, string operation, string dependentPackage, string projectGuids, string uri,
+            bool nonJSONRequest = false, bool nonPostRequest = false)
         {
             Console.WriteLine("Running scenario: " + scenario);
             Console.WriteLine("On " + uri);
-            if (expected != await Post(id, version, ipAddress, userAgent, operation, dependentPackage, projectGuids, uri))
+            if (expected != await Post(id, version, ipAddress, userAgent, operation, dependentPackage, projectGuids, uri, nonJSONRequest: nonJSONRequest, nonPostRequest: nonPostRequest))
             {
                 throw new InvalidOperationException("Response for " + scenario + " is not the expected status code" + expected);
             }
@@ -67,7 +77,7 @@ namespace NuGet.Services.Metrics
             var downloadEventEndpoint = @"http://" + host + "/DownloadEvent";
 
             var id = "DependentPackage";
-            var version = "3.0.0";
+            var version = "1.0.0"; // DependentPackage.1.0.0 should be present in the database the service writes to. Otherwise, the row cannot be added and the service logs the failure
             string ipAddress = null;
             string userAgent = "Console Test";
             string operation = "Install";
@@ -82,7 +92,15 @@ namespace NuGet.Services.Metrics
             scenario = "Non existent endpoint";
             await RunScenario(scenario, HttpStatusCode.NotFound, id, version, ipAddress, userAgent, operation, dependentPackage, projectGuids, nonExistentEndpoint);
 
-            // Non existent endpoint
+            // Bad request. Request is not JSON
+            scenario = "Bad request. Request is not JSON";
+            await RunScenario(scenario, HttpStatusCode.BadRequest, id, version, ipAddress, userAgent, operation, dependentPackage, projectGuids, downloadEventEndpoint, nonJSONRequest: true);
+
+            // Bad request. Request Method is not POST
+            scenario = "Bad request: Request Method is not POST";
+            await RunScenario(scenario, HttpStatusCode.BadRequest, id, version, ipAddress, userAgent, operation, dependentPackage, projectGuids, downloadEventEndpoint, nonJSONRequest: false, nonPostRequest: true);
+
+            // Download Event endpoint
             scenario = "Download event endpoint";
             await RunScenario(scenario, HttpStatusCode.Accepted, id, version, ipAddress, userAgent, operation, dependentPackage, projectGuids, downloadEventEndpoint);
         }
@@ -90,21 +108,15 @@ namespace NuGet.Services.Metrics
         async Task RunAllTests()
         {
             // LOCALHOST:12345
-            //var host = @"localhost:12345";
+            var host = @"localhost:12345";
 
             // INT
-            var host = @"nuget-int-0-metrics.cloudapp.net";
+            //var host = @"nuget-int-0-metrics.cloudapp.net";
 
             // PROD
             //var hostName = @"nuget-prod-0-metrics.cloudapp.net";
             await RunTestsForHost(host);
         }
-
-        void Main()
-        {
-            RunAllTests().Wait();
-        }
-
         // Define other methods and classes here
     }
 }

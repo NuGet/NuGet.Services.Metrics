@@ -10,20 +10,22 @@ namespace NuGet.Services.Metrics
 {
     public class DatabaseMetricsStorage : MetricsStorage
     {
-        private const string UnknownIPAddress = "unknown";
-        private const string NullString = "null";
-        private const string SqlStringFormat = "'{0}'";
-        private const string InsertQueryStringFormat = @"INSERT INTO PackageStatistics
+        private const string IdParam = "@id";
+        private const string NormalizedVersionParam = "@normalizedVersion";
+        private const string UserAgentParam = "@userAgent";
+        private const string OperationParam = "@operation";
+        private const string DependentPackageParam = "@dependentPackage";
+        private const string ProjectGuidsParam = "@projectGuids";
+
+        private static readonly string InsertQuery = @"INSERT INTO PackageStatistics
 (PackageKey, IPAddress, UserAgent, Operation, DependentPackage, ProjectGuids)
 VALUES(
-(SELECT		[Key]
-FROM		Packages
-WHERE		[PackageRegistrationKey] IN
-(SELECT		[Key]
-FROM		PackageRegistrations
-WHERE		Id = {0})
-AND			NormalizedVersion = {1})
-, {2}, {3}, {4}, {5}, {6})";
+(SELECT		p.[Key]
+FROM		Packages p
+INNER JOIN	PackageRegistrations pr
+ON          p.[PackageRegistrationKey] = pr.[Key]
+WHERE		Id = @id
+AND			NormalizedVersion = @normalizedVersion), 'unknown', @userAgent, @operation, @dependentPackage, @projectGuids)";
 
         private readonly SqlConnectionStringBuilder _cstr;
 
@@ -38,36 +40,37 @@ AND			NormalizedVersion = {1})
             // NEED to normalize
             var version = jObject[VersionKey].ToString();
 
-            var ipAddress = UnknownIPAddress; // Always store "unknown" as the IPAddress
             var userAgent = JTokenToString(jObject[UserAgentKey]);
             var operation = JTokenToString(jObject[OperationKey]);
             var dependentPackage = JTokenToString(jObject[DependentPackageKey]);
             var projectGuids = JTokenToString(jObject[ProjectGuidsKey]);
 
-            var insertQuery = String.Format(InsertQueryStringFormat,
-                SqlStringify(id),
-                SqlStringify(version),
-                SqlStringify(ipAddress),
-                SqlStringify(userAgent),
-                SqlStringify(operation),
-                SqlStringify(dependentPackage),
-                SqlStringify(projectGuids));
-
             using (var connection = new SqlConnection(_cstr.ConnectionString))
             {
                 await connection.OpenAsync();
-                var command = new SqlCommand(insertQuery, connection);
+                var command = new SqlCommand(InsertQuery, connection);
+                command.Parameters.AddWithValue(IdParam, id);
+                command.Parameters.AddWithValue(NormalizedVersionParam, version);
+                command.Parameters.AddWithValue(UserAgentParam, GetSqlValue(userAgent));
+                command.Parameters.AddWithValue(OperationParam, GetSqlValue(operation));
+                command.Parameters.AddWithValue(DependentPackageParam, GetSqlValue(dependentPackage));
+                command.Parameters.AddWithValue(ProjectGuidsParam, GetSqlValue(projectGuids));
+
                 await command.ExecuteNonQueryAsync();
                 connection.Close();
             }
         }
 
-        private string SqlStringify(string param)
+        private object GetSqlValue(string param)
         {
-            if (param == null)
-                return NullString;
-
-            return String.Format(SqlStringFormat, param);
+            if (String.IsNullOrEmpty(param))
+            {
+                return DBNull.Value;
+            }
+            else
+            {
+                return param;
+            }
         }
     }
 }
