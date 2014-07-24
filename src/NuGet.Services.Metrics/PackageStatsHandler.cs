@@ -42,15 +42,23 @@ namespace NuGet.Services.Metrics
             {
                 if (context.Request.Method != HTTPPost)
                 {
-                    throw new InvalidOperationException("Only POST is accepted");
+                    context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
                 }
 
                 using (var streamReader = new StreamReader(context.Request.Body))
                 {
-                    var jsonString = await streamReader.ReadToEndAsync();
-                    var jObject = JObject.Parse(jsonString);
-                    Task.Run(() => Process(jObject));
-                    context.Response.StatusCode = (int)HttpStatusCode.Accepted;
+                    try
+                    {
+                        var jsonString = await streamReader.ReadToEndAsync();
+                        var jObject = JObject.Parse(jsonString);
+                        Task.Run(() => Process(jObject));
+                        context.Response.StatusCode = (int)HttpStatusCode.Accepted;
+                    }
+                    catch (Exception ex)
+                    {
+                        Trace.TraceError(ex.ToString());
+                        context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+                    }
                 }
             }
             else
