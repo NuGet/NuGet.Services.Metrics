@@ -17,22 +17,15 @@ namespace NuGet.Services.Metrics
         private const string DependentPackageParam = "@dependentPackage";
         private const string ProjectGuidsParam = "@projectGuids";
 
-        private static readonly string InsertQuery = String.Format(@"INSERT INTO PackageStatistics
+        private static readonly string InsertQuery = @"INSERT INTO PackageStatistics
 (PackageKey, IPAddress, UserAgent, Operation, DependentPackage, ProjectGuids)
 VALUES(
-(SELECT		[Key]
-FROM		Packages
-WHERE		[PackageRegistrationKey] IN
-(SELECT		[Key]
-FROM		PackageRegistrations
-WHERE		Id = {0})
-AND			NormalizedVersion = {1}), 'unknown', {2}, {3}, {4}, {5})",
-                                 IdParam,
-                                 NormalizedVersionParam,
-                                 UserAgentParam,
-                                 OperationParam,
-                                 DependentPackageParam,
-                                 ProjectGuidsParam);
+(SELECT		p.[Key]
+FROM		Packages p
+INNER JOIN	PackageRegistrations pr
+ON          p.[PackageRegistrationKey] = pr.[Key]
+WHERE		Id = @id
+AND			NormalizedVersion = @normalizedVersion), 'unknown', @userAgent, @operation, @dependentPackage, @projectGuids)";
 
         private readonly SqlConnectionStringBuilder _cstr;
 
