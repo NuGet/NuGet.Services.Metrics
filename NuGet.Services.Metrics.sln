@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MetricsTestConsoleApp", "sr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NuGet.Services.Metrics.Core", "src\NuGet.Services.Metrics.Core\NuGet.Services.Metrics.Core.csproj", "{858ACD1E-E7DF-4C8B-B97E-2EBA64A83612}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NuGet.Services.Metrics.Website", "src\NuGet.Services.Metrics.Website\NuGet.Services.Metrics.Website.csproj", "{A94077EE-7B93-4204-BE33-90A82F055E1F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +35,10 @@ Global
 		{858ACD1E-E7DF-4C8B-B97E-2EBA64A83612}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{858ACD1E-E7DF-4C8B-B97E-2EBA64A83612}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{858ACD1E-E7DF-4C8B-B97E-2EBA64A83612}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A94077EE-7B93-4204-BE33-90A82F055E1F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A94077EE-7B93-4204-BE33-90A82F055E1F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A94077EE-7B93-4204-BE33-90A82F055E1F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A94077EE-7B93-4204-BE33-90A82F055E1F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
