@@ -1,18 +1,14 @@
-﻿using Microsoft.Owin;
-using Microsoft.WindowsAzure.ServiceRuntime;
-using Newtonsoft.Json.Linq;
-using System;
-using System.Collections.Generic;
-using System.Data.SqlClient;
+﻿using System;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Net;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Owin;
+using Newtonsoft.Json.Linq;
 
-namespace NuGet.Services.Metrics
+
+namespace NuGet.Services.Metrics.Core
 {
     public class PackageStatsHandler
     {

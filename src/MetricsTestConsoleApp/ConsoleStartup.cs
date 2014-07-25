@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Threading.Tasks;
 using Microsoft.Owin;
-using NuGet.Services.Metrics;
+using NuGet.Services.Metrics.Core;
 using Owin;
 
 namespace MetricsTestConsoleApp
