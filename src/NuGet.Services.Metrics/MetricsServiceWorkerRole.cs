@@ -40,7 +40,7 @@ namespace NuGet.Services.Metrics
             // For information on handling configuration changes
             // see the MSDN topic at http://go.microsoft.com/fwlink/?LinkId=166357.
 
-            _app = WebApp.Start<Startup>(new StartOptions(uri));
+            _app = WebApp.Start<Startup>(uri);
 
             return base.OnStart();
         }
