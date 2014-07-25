@@ -1,11 +1,8 @@
-﻿using Newtonsoft.Json.Linq;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿using System;
 using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 
-namespace NuGet.Services.Metrics
+namespace NuGet.Services.Metrics.Core
 {
     public abstract class MetricsStorage
     {

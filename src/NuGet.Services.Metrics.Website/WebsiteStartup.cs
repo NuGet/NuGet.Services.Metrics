@@ -1,20 +1,23 @@
-﻿using System.Diagnostics;
+﻿using System;
 using System.Threading.Tasks;
 using Microsoft.Owin;
-using Microsoft.WindowsAzure.ServiceRuntime;
-using NuGet.Services.Metrics.Core;
 using Owin;
+using NuGet.Services.Metrics.Core;
+using System.Web.Configuration;
+using System.Diagnostics;
 
-namespace NuGet.Services.Metrics
+[assembly: OwinStartup(typeof(NuGet.Services.Metrics.Website.WebsiteStartup))]
+
+namespace NuGet.Services.Metrics.Website
 {
-    internal class Startup
+    public class WebsiteStartup
     {
         private PackageStatsHandler _packageStatsHandler;
         private const string SqlConfigurationKey = "Metrics.SqlServer";
         public void Configuration(IAppBuilder appBuilder)
         {
-            string connectionString = RoleEnvironment.GetConfigurationSettingValue(SqlConfigurationKey);
-            _packageStatsHandler = new PackageStatsHandler(connectionString);
+            var connectionStringSetting = WebConfigurationManager.ConnectionStrings[SqlConfigurationKey];
+            _packageStatsHandler = new PackageStatsHandler(connectionStringSetting.ConnectionString);
             appBuilder.Run(Invoke);
         }
 

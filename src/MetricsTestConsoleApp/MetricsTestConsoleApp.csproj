@@ -55,15 +55,16 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="ConsoleStartup.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\NuGet.Services.Metrics\NuGet.Services.Metrics.csproj">
-      <Project>{1ee18ce6-0162-4f5a-812c-c6687038cfca}</Project>
-      <Name>NuGet.Services.Metrics</Name>
+    <ProjectReference Include="..\NuGet.Services.Metrics.Core\NuGet.Services.Metrics.Core.csproj">
+      <Project>{858acd1e-e7df-4c8b-b97e-2eba64a83612}</Project>
+      <Name>NuGet.Services.Metrics.Core</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

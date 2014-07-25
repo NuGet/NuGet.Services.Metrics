@@ -1,20 +1,18 @@
 ﻿using System.Diagnostics;
 using System.Threading.Tasks;
 using Microsoft.Owin;
-using Microsoft.WindowsAzure.ServiceRuntime;
 using NuGet.Services.Metrics.Core;
 using Owin;
 
-namespace NuGet.Services.Metrics
+namespace MetricsTestConsoleApp
 {
-    internal class Startup
+    internal class ConsoleStartup
     {
         private PackageStatsHandler _packageStatsHandler;
-        private const string SqlConfigurationKey = "Metrics.SqlServer";
+        private const string ConnectionString = "Data Source=(LocalDB)\\v11.0;Integrated Security=SSPI;Initial Catalog=NuGetGallery";
         public void Configuration(IAppBuilder appBuilder)
-        {
-            string connectionString = RoleEnvironment.GetConfigurationSettingValue(SqlConfigurationKey);
-            _packageStatsHandler = new PackageStatsHandler(connectionString);
+        {            
+            _packageStatsHandler = new PackageStatsHandler(ConnectionString);
             appBuilder.Run(Invoke);
         }
 

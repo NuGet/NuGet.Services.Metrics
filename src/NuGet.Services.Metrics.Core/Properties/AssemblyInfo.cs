@@ -5,9 +5,9 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("MetricsTestConsoleApp")]
-[assembly: AssemblyDescription("Test Console App that self hosts the metrics service")]
-[assembly: AssemblyProduct("MetricsTestConsoleApp")]
+[assembly: AssemblyTitle("NuGet.Services.Metrics.Core")]
+[assembly: AssemblyDescription("Core Metrics Service which can be hosted by any kind of OWIN host")]
+[assembly: AssemblyProduct("NuGet.Services.Metrics.Core")]
 
 // Setting ComVisible to false makes the types in this assembly not visible 
 // to COM components.  If you need to access a type in this assembly from 
@@ -15,7 +15,7 @@ using System.Runtime.InteropServices;
 [assembly: ComVisible(false)]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
-[assembly: Guid("55613bb2-6405-4dbd-bfa1-d75749da52d2")]
+[assembly: Guid("8c70a0db-22ff-4ae7-92a9-cc3d5a004ee4")]
 
 // Version information for an assembly consists of the following four values:
 //

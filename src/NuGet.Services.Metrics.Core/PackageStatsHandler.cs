@@ -1,18 +1,14 @@
-﻿using Microsoft.Owin;
-using Microsoft.WindowsAzure.ServiceRuntime;
-using Newtonsoft.Json.Linq;
-using System;
-using System.Collections.Generic;
-using System.Data.SqlClient;
+﻿using System;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Net;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Owin;
+using Newtonsoft.Json.Linq;
 
-namespace NuGet.Services.Metrics
+
+namespace NuGet.Services.Metrics.Core
 {
     public class PackageStatsHandler
     {
@@ -22,9 +18,8 @@ namespace NuGet.Services.Metrics
         private static readonly PathString Root = new PathString("/");
         private static readonly PathString DownloadEvent = new PathString("/DownloadEvent");
 
-        public PackageStatsHandler()
+        public PackageStatsHandler(string connectionString)
         {
-            var connectionString = GetSqlConnectionString();
             if (String.IsNullOrEmpty(connectionString))
             {
                 throw new ArgumentException("Metrics.SqlServer is not present in the configuration");
@@ -82,21 +77,6 @@ namespace NuGet.Services.Metrics
                 Trace.TraceError(ex.ToString());
             }
             Trace.TraceInformation("Completed processing for {0}", count);
-        }
-
-        private string GetSqlConnectionString()
-        {
-            const string SqlConfigurationKey = "Metrics.SqlServer";
-            string connectionString = null;
-            try
-            {
-                connectionString = RoleEnvironment.GetConfigurationSettingValue(SqlConfigurationKey);
-            }
-            catch (Exception ex)
-            {
-                connectionString = "Data Source=(LocalDB)\\v11.0;Integrated Security=SSPI;Initial Catalog=NuGetGallery";
-            }
-            return connectionString;
         }
     }
 }
