@@ -62,7 +62,7 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\NuGet.Services.Metrics.Core\NuGet.Services.Metrics.Core.csproj">
+    <ProjectReference Include="..\..\src\NuGet.Services.Metrics.Core\NuGet.Services.Metrics.Core.csproj">
       <Project>{858acd1e-e7df-4c8b-b97e-2eba64a83612}</Project>
       <Name>NuGet.Services.Metrics.Core</Name>
     </ProjectReference>
