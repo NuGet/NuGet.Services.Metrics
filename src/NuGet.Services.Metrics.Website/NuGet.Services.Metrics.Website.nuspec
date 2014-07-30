@@ -1,0 +1,20 @@
+﻿<?xml version="1.0"?>
+<package >
+  <metadata>
+    <id>NuGet.Services.Metrics.Website</id>
+    <version>0.0.0</version>
+    <authors>Outercurve Foundation</authors>
+    <owners>Outercurve Foundation</owners>
+    <licenseUrl>https://github.com/NuGet/NuGet.Services.Metrics/blob/master/LICENSE</licenseUrl>
+    <projectUrl>https://github.com/NuGet/NuGet.Services.Metrics</projectUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>Deployment package for the NuGet Metrics Service.</description>
+    <releaseNotes>
+      Built by $BuildUser$ on $BuildMachine$ at $BuildDateUtc$ from $Commit$ on branch '$Branch$'.
+    </releaseNotes>
+  </metadata>
+  <files>
+    <file src="Deploy.ps1" />
+    <file src="obj/%system.Configuration%/_PublishedWebsites/NuGet.Services.Metrics.Website.csproj_Package/NuGet.Services.Metrics.Website.csproj.zip" />
+  </files>
+</package>
