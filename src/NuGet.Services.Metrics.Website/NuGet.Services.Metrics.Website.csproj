@@ -67,7 +67,7 @@
     <Reference Include="System.EnterpriseServices" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="packages.config" />
+    <None Include="packages.config" />
     <None Include="Deploy.ps1" />
     <None Include="NuGet.Services.Metrics.Website.nuspec" />
     <None Include="Web.Debug.config">
