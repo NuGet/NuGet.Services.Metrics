@@ -31,12 +31,14 @@ namespace NuGet.Services.Metrics.Core
         {
             if (context.Request.Path.StartsWithSegments(Root))
             {
+                await context.Response.WriteAsync("NuGet Metrics Service: OK");
                 context.Response.StatusCode = (int)HttpStatusCode.OK;
             }
             else if (context.Request.Path.StartsWithSegments(DownloadEvent))
             {
                 if (context.Request.Method != HTTPPost)
                 {
+                    await context.Response.WriteAsync("Only HTTP POST requests are accepted");
                     context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
                 }
 
@@ -58,6 +60,7 @@ namespace NuGet.Services.Metrics.Core
             }
             else
             {
+                await context.Response.WriteAsync("NOT FOUND");
                 context.Response.StatusCode = (int)HttpStatusCode.NotFound;
             }
         }
