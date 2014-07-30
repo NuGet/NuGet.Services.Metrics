@@ -8,6 +8,9 @@ $AzureCertificateThumbPrint = $OctopusParameters['Deployment.Azure.CertificateTh
 $AzureSubscriptionName = $OctopusParameters['Deployment.Azure.SubscriptionName']
 $AzureSubscriptionId = $OctopusParameters['Deployment.Azure.SubscriptionId']
 $AzureWebsiteName = $OctopusParameters['Deployment.Azure.WebsiteName']
+$WebPackageName = $OctopusParameters['Deployment.Azure.WebPackageName']
+$WebPackagePath = $OctopusParameters['Octopus.Action.Package.CustomInstallationDirectory'] + '\' + $WebPackageName
+Write-Host "Web Package Path: " + $WebPackagePath
 
 Write-Host "Getting azure subscriptions"
 $subscriptions = Get-AzureSubscription
@@ -38,5 +41,5 @@ else
 Write-Host "Selecting current azure subscription..."
 Select-AzureSubscription -SubscriptionName '$AzureSubscriptionName' -Current
 Write-Host "Selected current azure subscription. Publishing azure website..."
-Publish-AzureWebsiteProject -Name $AzureWebsiteName -Package $OctopusActionPackageCustomInstallationDirectory -Slot staging
+Publish-AzureWebsiteProject -Name $AzureWebsiteName -Package $WebPackagePath -Slot staging
 Write-Host "Published azure website successfully."
