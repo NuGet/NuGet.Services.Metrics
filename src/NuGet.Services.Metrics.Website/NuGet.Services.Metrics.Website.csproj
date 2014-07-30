@@ -68,7 +68,7 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="packages.config" />
-    <Content Include="DeployToAzure.ps1" />
+    <Content Include="Deploy.ps1" />
     <Content Include="NuGet.Services.Metrics.Website.nuspec" />
     <None Include="Web.Debug.config">
       <DependentUpon>Web.config</DependentUpon>
