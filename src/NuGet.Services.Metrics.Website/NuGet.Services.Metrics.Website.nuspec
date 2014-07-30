@@ -10,7 +10,7 @@
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>Deployment package for the NuGet Metrics Service.</description>
     <releaseNotes>
-      Built by $BuildUser$ on $BuildMachine$ at $BuildDateUtc$ from $Commit$ on branch '$Branch$'.
+      Built by %vcsroot.NuGetServices.username% on %teamcity.agent.name%
     </releaseNotes>
   </metadata>
   <files>
