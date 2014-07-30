@@ -1,6 +1,6 @@
 Write-Host "Before getting subscriptions, clear folder %appdata%\Windows Azure Powershell\*"
 $azureps = $env:APPDATA + '\Windows Azure Powershell\*'
-Write-Host "Removing folder" + $azureps
+Write-Host "Removing folder: " $azureps
 rm $azureps
 Write-Host "Removed appdata windows azure powershell folder"
 
@@ -9,8 +9,9 @@ $AzureSubscriptionName = $OctopusParameters['Deployment.Azure.SubscriptionName']
 $AzureSubscriptionId = $OctopusParameters['Deployment.Azure.SubscriptionId']
 $AzureWebsiteName = $OctopusParameters['Deployment.Azure.WebsiteName']
 $WebPackageName = $OctopusParameters['Deployment.Azure.WebPackageName']
+Write-Host "Web Package Name: " $WebPackageName
 $WebPackagePath = $OctopusParameters['Octopus.Action.Package.CustomInstallationDirectory'] + '\' + $WebPackageName
-Write-Host "Web Package Path: " + $WebPackagePath
+Write-Host "Web Package Path: " $WebPackagePath
 
 Write-Host "Getting azure subscriptions"
 $subscriptions = Get-AzureSubscription
