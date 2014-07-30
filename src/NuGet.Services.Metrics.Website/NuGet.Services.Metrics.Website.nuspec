@@ -9,9 +9,6 @@
     <projectUrl>https://github.com/NuGet/NuGet.Services.Metrics</projectUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>Deployment package for the NuGet Metrics Service.</description>
-    <releaseNotes>
-      Built by %vcsroot.NuGetServices.username% on %teamcity.agent.name%
-    </releaseNotes>
   </metadata>
   <files>
     <file src="Deploy.ps1" />
