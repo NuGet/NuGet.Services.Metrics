@@ -1,5 +1,5 @@
 Write-Host "Trying to find Certificate with Thumbprint:"
-Write-Host '$DeploymentAzureCertificateThumbprint'
+Write-Host $DeploymentAzureCertificateThumbprint
 $cert = dir cert:\LocalMachine  -rec | where { $_.Thumbprint -eq '$DeploymentAzureCertificateThumbprint' } | Select -First 1
 if(!$cert)
 {
