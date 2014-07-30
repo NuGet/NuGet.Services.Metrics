@@ -40,7 +40,7 @@ else
     Write-Host $subscriptions
 }
 Write-Host "Selecting current azure subscription..."
-Select-AzureSubscription -SubscriptionName '$AzureSubscriptionName' -Current
+Select-AzureSubscription -SubscriptionName '$AzureSubscriptionName' -Default
 Write-Host "Selected current azure subscription. Publishing azure website..."
 Publish-AzureWebsiteProject -Name $AzureWebsiteName -Package $WebPackagePath -Slot staging
 Write-Host "Published azure website successfully."
