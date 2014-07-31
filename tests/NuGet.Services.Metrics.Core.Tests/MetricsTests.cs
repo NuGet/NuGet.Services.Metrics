@@ -47,7 +47,7 @@ namespace NuGet.Services.Metrics.Core.Tests
             return jObject;
         }
 
-        async Task<HttpStatusCode> Post(string id, string version, string ipAddress, string userAgent, string operation, string dependentPackage, string projectGuids, string uri,
+        async Task<HttpStatusCode> RunScenario(string id, string version, string ipAddress, string userAgent, string operation, string dependentPackage, string projectGuids, string uri,
             bool nonJSONRequest = false, bool nonPostRequest = false)
         {
             var jObject = GetJObject(id, version, ipAddress, userAgent, operation, dependentPackage, projectGuids);
@@ -72,12 +72,6 @@ namespace NuGet.Services.Metrics.Core.Tests
             return response.StatusCode;
         }
 
-        async Task<HttpStatusCode> RunScenario(string id, string version, string ipAddress, string userAgent, string operation, string dependentPackage, string projectGuids, string uri,
-            bool nonJSONRequest = false, bool nonPostRequest = false)
-        {
-            return await Post(id, version, ipAddress, userAgent, operation, dependentPackage, projectGuids, uri, nonJSONRequest: nonJSONRequest, nonPostRequest: nonPostRequest);
-        }
-
         [Theory]
         [InlineData("Root endpoint", "/", HttpStatusCode.OK, false, false)]
         [InlineData("Non existent endpoint", "/DoesNotExist", HttpStatusCode.NotFound, false, false)]
@@ -89,7 +83,7 @@ namespace NuGet.Services.Metrics.Core.Tests
             var id = "EntityFramework";
             var version = "5.0.0";
             string ipAddress = null;
-            string userAgent = "Functional Test";
+            string userAgent = "Functional Tests Runner";
             string operation = "Install";
             string dependentPackage = null;
             string projectGuids = null;
