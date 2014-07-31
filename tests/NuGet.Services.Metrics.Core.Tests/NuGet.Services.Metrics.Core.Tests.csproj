@@ -8,8 +8,8 @@
     <ProjectGuid>{E10D2786-09CF-4CF6-B987-DAFB4BABBB91}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>NuGet.Services.Metrics.Core.Facts</RootNamespace>
-    <AssemblyName>NuGet.Services.Metrics.Core.Facts</AssemblyName>
+    <RootNamespace>NuGet.Services.Metrics.Core.Tests</RootNamespace>
+    <AssemblyName>NuGet.Services.Metrics.Core.Tests</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <NuGetPackageImportStamp>7e47c844</NuGetPackageImportStamp>
