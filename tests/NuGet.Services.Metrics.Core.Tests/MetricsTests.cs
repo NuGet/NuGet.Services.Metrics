@@ -6,18 +6,32 @@ using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
+using Xunit;
 
 namespace NuGet.Services.Metrics.Core.Tests
 {
     public class MetricsTests
     {
-        static string IdKey = "id";
-        static string VersionKey = "version";
-        static string IPAddressKey = "ipAddress";
-        static string UserAgentKey = "userAgent";
-        static string OperationKey = "operation";
-        static string DependentPackageKey = "dependentPackage";
-        static string ProjectGuidsKey = "projectGuids";
+        const string IdKey = "id";
+        const string VersionKey = "version";
+        const string IPAddressKey = "ipAddress";
+        const string UserAgentKey = "userAgent";
+        const string OperationKey = "operation";
+        const string DependentPackageKey = "dependentPackage";
+        const string ProjectGuidsKey = "projectGuids";
+        const string MetricsService = @"http://nuget-int-0-metrics-staging.azurewebsites.net/";
+        private Uri ServiceRoot = null;
+
+        public MetricsTests()
+        {
+            var root = Environment.GetEnvironmentVariable("NUGET_TEST_SERVICEROOT");
+            if(String.IsNullOrEmpty(root))
+            {
+                root = MetricsService;
+            }
+
+            ServiceRoot = new Uri(root);
+        }
 
         JObject GetJObject(string id, string version, string ipAddress, string userAgent, string operation, string dependentPackage, string projectGuids)
         {
@@ -33,76 +47,49 @@ namespace NuGet.Services.Metrics.Core.Tests
             return jObject;
         }
 
-        async Task<HttpStatusCode> Post(string id, string version, string ipAddress, string userAgent, string operation, string dependentPackage, string projectGuids, string uri,
+        async Task<HttpStatusCode> RunScenario(string id, string version, string ipAddress, string userAgent, string operation, string dependentPackage, string projectGuids, string uri,
             bool nonJSONRequest = false, bool nonPostRequest = false)
         {
-            Console.WriteLine("Posting");
             var jObject = GetJObject(id, version, ipAddress, userAgent, operation, dependentPackage, projectGuids);
-
-            using (var client = new HttpClient())
+            Console.WriteLine("Requesting response...");
+            HttpResponseMessage response;
+            using (var httpClient = new HttpClient()
+                                    {
+                                        BaseAddress = ServiceRoot
+                                    })
             {
-                Console.WriteLine("Using HttpClient");
-                Console.WriteLine("Requesting response...");
-                HttpResponseMessage response;
                 if (nonPostRequest)
                 {
-                    response = await client.GetAsync(uri);
+                    response = await httpClient.GetAsync(uri);
                 }
                 else
                 {
-                    response = await client.PostAsync(uri, new StringContent(nonJSONRequest ? "blah" : jObject.ToString(), Encoding.Default, "application/json"));
-                }
-                Console.WriteLine(response.StatusCode);
-                Console.WriteLine("Received response");
-                return response.StatusCode;
+                    response = await httpClient.PostAsync(uri, new StringContent(nonJSONRequest ? "blah" : jObject.ToString(), Encoding.Default, "application/json"));
+                } 
             }
+            Console.WriteLine(response.StatusCode);
+            Console.WriteLine("Received response");
+            return response.StatusCode;
         }
 
-        async Task RunScenario(string scenario, HttpStatusCode expected, string id, string version, string ipAddress, string userAgent, string operation, string dependentPackage, string projectGuids, string uri,
-            bool nonJSONRequest = false, bool nonPostRequest = false)
+        [Theory]
+        [InlineData("Root endpoint", "/", HttpStatusCode.OK, false, false)]
+        [InlineData("Non existent endpoint", "/DoesNotExist", HttpStatusCode.NotFound, false, false)]
+        [InlineData("Request is not JSON", "/DownloadEvent", HttpStatusCode.BadRequest, true, false)]
+        [InlineData("Request is not a POST", "/DownloadEvent", HttpStatusCode.BadRequest, false, true)]
+        [InlineData("Valid DownloadEvent Request", "/DownloadEvent", HttpStatusCode.Accepted, false, false)]
+        public async Task RunScenario(string scenario, string uri, HttpStatusCode expected, bool nonJSONRequest, bool nonPostRequest)
         {
-            Console.WriteLine("Running scenario: " + scenario);
-            Console.WriteLine("On " + uri);
-            if (expected != await Post(id, version, ipAddress, userAgent, operation, dependentPackage, projectGuids, uri, nonJSONRequest: nonJSONRequest, nonPostRequest: nonPostRequest))
-            {
-                throw new InvalidOperationException("Response for " + scenario + " is not the expected status code" + expected);
-            }
-            Console.WriteLine("Successfully ran scenario: " + scenario);
-        }
-
-        async Task RunTestsForHost(string host)
-        {
-            var rootEndpoint = @"http://" + host + "/";
-            var nonExistentEndpoint = @"http://" + host + "/DoesNotExist";
-            var downloadEventEndpoint = @"http://" + host + "/DownloadEvent";
-
-            var id = "DependentPackage";
-            var version = "1.0.0"; // DependentPackage.1.0.0 should be present in the database the service writes to. Otherwise, the row cannot be added and the service logs the failure
+            var id = "EntityFramework";
+            var version = "5.0.0";
             string ipAddress = null;
-            string userAgent = "Console Test";
+            string userAgent = "Functional Tests Runner";
             string operation = "Install";
             string dependentPackage = null;
             string projectGuids = null;
 
-            // Root endpoint
-            var scenario = "Root endpoint";
-            await RunScenario(scenario, HttpStatusCode.OK, id, version, ipAddress, userAgent, operation, dependentPackage, projectGuids, rootEndpoint);
-
-            // Non existent endpoint
-            scenario = "Non existent endpoint";
-            await RunScenario(scenario, HttpStatusCode.NotFound, id, version, ipAddress, userAgent, operation, dependentPackage, projectGuids, nonExistentEndpoint);
-
-            // Bad request. Request is not JSON
-            scenario = "Bad request. Request is not JSON";
-            await RunScenario(scenario, HttpStatusCode.BadRequest, id, version, ipAddress, userAgent, operation, dependentPackage, projectGuids, downloadEventEndpoint, nonJSONRequest: true);
-
-            // Bad request. Request Method is not POST
-            scenario = "Bad request: Request Method is not POST";
-            await RunScenario(scenario, HttpStatusCode.BadRequest, id, version, ipAddress, userAgent, operation, dependentPackage, projectGuids, downloadEventEndpoint, nonJSONRequest: false, nonPostRequest: true);
-
-            // Download Event endpoint
-            scenario = "Download event endpoint";
-            await RunScenario(scenario, HttpStatusCode.Accepted, id, version, ipAddress, userAgent, operation, dependentPackage, projectGuids, downloadEventEndpoint);
+            Console.WriteLine("Running scenario {0} on host: {1}", scenario, ServiceRoot.AbsoluteUri);
+            Assert.Equal(expected, await RunScenario(id, version, ipAddress, userAgent, operation, dependentPackage, projectGuids, uri, nonJSONRequest: nonJSONRequest, nonPostRequest: nonPostRequest)) ;
         }
     }
 }
