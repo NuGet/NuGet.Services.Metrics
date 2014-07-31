@@ -60,7 +60,7 @@ namespace NuGet.Services.Metrics.Core
             }
             else
             {
-                await context.Response.WriteAsync("This webpage is not found");
+                await context.Response.WriteAsync("Page is not found");
                 context.Response.StatusCode = (int)HttpStatusCode.NotFound;
             }
         }
