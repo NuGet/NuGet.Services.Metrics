@@ -69,17 +69,18 @@ namespace NuGet.Services.Metrics.Core
         {
             Interlocked.Increment(ref _count);
             int count = _count;
-            Trace.TraceInformation("Processing count : {0}", count, jObject.ToString());
+            Trace.WriteLine("Processing count : " + count);
             try
             {
                 await _metricsStorage.AddPackageDownloadStatistics(jObject);
+                Trace.TraceInformation("Package Download Statistics processed successfully");
             }
             catch (Exception ex)
             {
                 // Catch all exceptions
                 Trace.TraceError(ex.ToString());
             }
-            Trace.TraceInformation("Completed processing for {0}", count);
+            Trace.WriteLine("Completed processing for count: " + count);
         }
     }
 }

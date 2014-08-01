@@ -37,10 +37,10 @@ namespace NuGet.Services.Metrics.Website
         private async Task Invoke(IOwinContext context)
         {
             var requestUri = context.Request.Uri;
-            Trace.TraceInformation("Request received : {0}", requestUri.AbsoluteUri);
+            Trace.WriteLine("Request received : " + requestUri.AbsoluteUri);
 
             await _packageStatsHandler.Invoke(context);
-            Trace.TraceInformation("Request accepted. Processing...");
+            Trace.WriteLine("Request accepted. Processing...");
         }
     }
 }
