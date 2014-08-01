@@ -19,7 +19,7 @@ namespace NuGet.Services.Metrics.Core.Tests
         const string OperationKey = "operation";
         const string DependentPackageKey = "dependentPackage";
         const string ProjectGuidsKey = "projectGuids";
-        const string MetricsService = @"http://nuget-int-0-metrics-staging.azurewebsites.net/";
+        const string MetricsService = @"http://localhost:12345";
         private Uri ServiceRoot = null;
 
         public MetricsTests()

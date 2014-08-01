@@ -18,28 +18,28 @@ namespace NuGet.Services.Metrics.Core
         private static readonly PathString Root = new PathString("/");
         private static readonly PathString DownloadEvent = new PathString("/DownloadEvent");
 
-        public PackageStatsHandler(string connectionString)
+        public PackageStatsHandler(string connectionString, int commandTimeout)
         {
             if (String.IsNullOrEmpty(connectionString))
             {
                 throw new ArgumentException("Metrics.SqlServer is not present in the configuration");
             }
-            _metricsStorage = new DatabaseMetricsStorage(connectionString);
+            _metricsStorage = new DatabaseMetricsStorage(connectionString, commandTimeout);
         }
 
         public async Task Invoke(IOwinContext context)
         {
             if (context.Request.Path.StartsWithSegments(Root))
             {
-                await context.Response.WriteAsync("NuGet Metrics Service: OK");
                 context.Response.StatusCode = (int)HttpStatusCode.OK;
+                await context.Response.WriteAsync("NuGet Metrics Service: OK");
             }
             else if (context.Request.Path.StartsWithSegments(DownloadEvent))
             {
                 if (context.Request.Method != HTTPPost)
                 {
-                    await context.Response.WriteAsync("Only HTTP POST requests are accepted");
                     context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+                    await context.Response.WriteAsync("Only HTTP POST requests are accepted");
                 }
 
                 using (var streamReader = new StreamReader(context.Request.Body))
@@ -60,8 +60,8 @@ namespace NuGet.Services.Metrics.Core
             }
             else
             {
-                await context.Response.WriteAsync("Page is not found");
                 context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+                await context.Response.WriteAsync("Page is not found");                
             }
         }
 

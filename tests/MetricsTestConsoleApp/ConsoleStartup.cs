@@ -10,9 +10,10 @@ namespace MetricsTestConsoleApp
     {
         private PackageStatsHandler _packageStatsHandler;
         private const string ConnectionString = "Data Source=(LocalDB)\\v11.0;Integrated Security=SSPI;Initial Catalog=NuGetGallery";
+        private const int CommandTimeout = 5;
         public void Configuration(IAppBuilder appBuilder)
         {            
-            _packageStatsHandler = new PackageStatsHandler(ConnectionString);
+            _packageStatsHandler = new PackageStatsHandler(ConnectionString, CommandTimeout);
             appBuilder.Run(Invoke);
         }
 
