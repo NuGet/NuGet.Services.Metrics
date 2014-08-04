@@ -19,7 +19,7 @@ namespace NuGet.Services.Metrics.Core.Tests
         const string OperationKey = "operation";
         const string DependentPackageKey = "dependentPackage";
         const string ProjectGuidsKey = "projectGuids";
-        const string MetricsService = @"http://nuget-int-0-metrics-staging.azurewebsites.net/";
+        const string MetricsService = @"http://localhost:12345";
         private Uri ServiceRoot = null;
 
         public MetricsTests()
@@ -47,10 +47,9 @@ namespace NuGet.Services.Metrics.Core.Tests
             return jObject;
         }
 
-        async Task<HttpStatusCode> RunScenario(string id, string version, string ipAddress, string userAgent, string operation, string dependentPackage, string projectGuids, string uri,
+        async Task<HttpResponseMessage> RunScenario(JToken jToken, string uri,
             bool nonJSONRequest = false, bool nonPostRequest = false)
-        {
-            var jObject = GetJObject(id, version, ipAddress, userAgent, operation, dependentPackage, projectGuids);
+        {            
             Console.WriteLine("Requesting response...");
             HttpResponseMessage response;
             using (var httpClient = new HttpClient()
@@ -64,21 +63,22 @@ namespace NuGet.Services.Metrics.Core.Tests
                 }
                 else
                 {
-                    response = await httpClient.PostAsync(uri, new StringContent(nonJSONRequest ? "blah" : jObject.ToString(), Encoding.Default, "application/json"));
+                    response = await httpClient.PostAsync(uri, new StringContent(nonJSONRequest ? "blah" : jToken.ToString(), Encoding.Default, "application/json"));
                 } 
             }
             Console.WriteLine(response.StatusCode);
             Console.WriteLine("Received response");
-            return response.StatusCode;
+            return response;
         }
 
         [Theory]
-        [InlineData("Root endpoint", "/", HttpStatusCode.OK, false, false)]
-        [InlineData("Non existent endpoint", "/DoesNotExist", HttpStatusCode.NotFound, false, false)]
-        [InlineData("Request is not JSON", "/DownloadEvent", HttpStatusCode.BadRequest, true, false)]
-        [InlineData("Request is not a POST", "/DownloadEvent", HttpStatusCode.BadRequest, false, true)]
-        [InlineData("Valid DownloadEvent Request", "/DownloadEvent", HttpStatusCode.Accepted, false, false)]
-        public async Task RunScenario(string scenario, string uri, HttpStatusCode expected, bool nonJSONRequest, bool nonPostRequest)
+        [InlineData("Root endpoint", "/", HttpStatusCode.OK, false, false, 1)]
+        [InlineData("Non existent endpoint", "/DoesNotExist", HttpStatusCode.NotFound, false, false, 1)]
+        [InlineData("Request is not JSON", "/DownloadEvent", HttpStatusCode.BadRequest, true, false, 1)]
+        [InlineData("Request is not a POST", "/DownloadEvent", HttpStatusCode.MethodNotAllowed, false, true, 1)]
+        [InlineData("Valid downloadEvent request", "/DownloadEvent", HttpStatusCode.Accepted, false, false, 1)]
+        [InlineData("Multiple valid downloadEvent requests", "/DownloadEvent", HttpStatusCode.Accepted, false, false, 5)]
+        public async Task RunScenario(string scenario, string uri, HttpStatusCode expected, bool nonJSONRequest, bool nonPostRequest, int numberOfEvents)
         {
             var id = "EntityFramework";
             var version = "5.0.0";
@@ -89,7 +89,27 @@ namespace NuGet.Services.Metrics.Core.Tests
             string projectGuids = null;
 
             Console.WriteLine("Running scenario {0} on host: {1}", scenario, ServiceRoot.AbsoluteUri);
-            Assert.Equal(expected, await RunScenario(id, version, ipAddress, userAgent, operation, dependentPackage, projectGuids, uri, nonJSONRequest: nonJSONRequest, nonPostRequest: nonPostRequest)) ;
+            JToken jToken = null;
+            if (numberOfEvents == 1)
+            {
+                jToken = GetJObject(id, version, ipAddress, userAgent, operation, dependentPackage, projectGuids);
+            }
+            else
+            {
+                JArray jArray = new JArray();
+                for(int i = 0; i < numberOfEvents; i++)
+                {
+                    jArray.Add(GetJObject(id, version, ipAddress, userAgent, operation, dependentPackage, projectGuids));
+                }
+                jToken = jArray;
+            }
+
+            var actualResponse = await RunScenario(jToken, uri, nonJSONRequest: nonJSONRequest, nonPostRequest: nonPostRequest);
+            Assert.Equal(expected, actualResponse.StatusCode) ;
+            if (actualResponse.StatusCode == HttpStatusCode.MethodNotAllowed)
+            {
+                // TODO: Check that the "Allow" header is set appropriately in the Http response
+            }
         }
     }
 }

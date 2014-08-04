@@ -25,10 +25,12 @@ WHERE		Id = @id
 AND			NormalizedVersion = @normalizedVersion), 'unknown', @userAgent, @operation, @dependentPackage, @projectGuids)";
 
         private readonly SqlConnectionStringBuilder _cstr;
+        private readonly int _commandTimeout;
 
-        public DatabaseMetricsStorage(string connectionString)
+        public DatabaseMetricsStorage(string connectionString, int commandTimeout)
         {
             _cstr = new SqlConnectionStringBuilder(connectionString);
+            _commandTimeout = commandTimeout > 0 ? commandTimeout : 5;
         }
 
         public override async Task AddPackageDownloadStatistics(JObject jObject)
@@ -46,6 +48,7 @@ AND			NormalizedVersion = @normalizedVersion), 'unknown', @userAgent, @operation
             {
                 await connection.OpenAsync();
                 var command = new SqlCommand(InsertQuery, connection);
+                command.CommandTimeout = _commandTimeout;
                 command.Parameters.AddWithValue(IdParam, id);
                 command.Parameters.AddWithValue(NormalizedVersionParam, version);
                 command.Parameters.AddWithValue(UserAgentParam, GetSqlValue(userAgent));
@@ -54,7 +57,6 @@ AND			NormalizedVersion = @normalizedVersion), 'unknown', @userAgent, @operation
                 command.Parameters.AddWithValue(ProjectGuidsParam, GetSqlValue(projectGuids));
 
                 await command.ExecuteNonQueryAsync();
-                connection.Close();
             }
         }
 
