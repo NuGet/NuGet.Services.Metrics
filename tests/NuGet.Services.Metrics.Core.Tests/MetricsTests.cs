@@ -47,7 +47,7 @@ namespace NuGet.Services.Metrics.Core.Tests
             return jObject;
         }
 
-        async Task<HttpStatusCode> RunScenario(JToken jToken, string uri,
+        async Task<HttpResponseMessage> RunScenario(JToken jToken, string uri,
             bool nonJSONRequest = false, bool nonPostRequest = false)
         {            
             Console.WriteLine("Requesting response...");
@@ -68,14 +68,14 @@ namespace NuGet.Services.Metrics.Core.Tests
             }
             Console.WriteLine(response.StatusCode);
             Console.WriteLine("Received response");
-            return response.StatusCode;
+            return response;
         }
 
         [Theory]
         [InlineData("Root endpoint", "/", HttpStatusCode.OK, false, false, 1)]
         [InlineData("Non existent endpoint", "/DoesNotExist", HttpStatusCode.NotFound, false, false, 1)]
         [InlineData("Request is not JSON", "/DownloadEvent", HttpStatusCode.BadRequest, true, false, 1)]
-        [InlineData("Request is not a POST", "/DownloadEvent", HttpStatusCode.BadRequest, false, true, 1)]
+        [InlineData("Request is not a POST", "/DownloadEvent", HttpStatusCode.MethodNotAllowed, false, true, 1)]
         [InlineData("Valid downloadEvent request", "/DownloadEvent", HttpStatusCode.Accepted, false, false, 1)]
         [InlineData("Multiple valid downloadEvent requests", "/DownloadEvent", HttpStatusCode.Accepted, false, false, 5)]
         public async Task RunScenario(string scenario, string uri, HttpStatusCode expected, bool nonJSONRequest, bool nonPostRequest, int numberOfEvents)
@@ -103,7 +103,13 @@ namespace NuGet.Services.Metrics.Core.Tests
                 }
                 jToken = jArray;
             }
-            Assert.Equal(expected, await RunScenario(jToken, uri, nonJSONRequest: nonJSONRequest, nonPostRequest: nonPostRequest)) ;
+
+            var actualResponse = await RunScenario(jToken, uri, nonJSONRequest: nonJSONRequest, nonPostRequest: nonPostRequest);
+            Assert.Equal(expected, actualResponse.StatusCode) ;
+            if (actualResponse.StatusCode == HttpStatusCode.MethodNotAllowed)
+            {
+                // TODO: Check that the "Allow" header is set appropriately in the Http response
+            }
         }
     }
 }

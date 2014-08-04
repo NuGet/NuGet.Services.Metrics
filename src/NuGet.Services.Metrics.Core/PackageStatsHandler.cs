@@ -38,7 +38,8 @@ namespace NuGet.Services.Metrics.Core
             {
                 if (context.Request.Method != HTTPPost)
                 {
-                    context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+                    context.Response.Headers.Add("Allow", new[] { "POST" });
+                    context.Response.StatusCode = (int)HttpStatusCode.MethodNotAllowed;
                     await context.Response.WriteAsync("Only HTTP POST requests are accepted");
                     return;
                 }
