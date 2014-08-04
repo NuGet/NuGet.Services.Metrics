@@ -40,15 +40,18 @@ namespace NuGet.Services.Metrics.Core
                 {
                     context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
                     await context.Response.WriteAsync("Only HTTP POST requests are accepted");
+                    return;
                 }
 
+                // TODO: NEED TO ADD CHECK TO ENSURE THAT THE STREAM IS NOT TOO LONG
+                //       Note that Stream 'IOwinRequest.Body' does not support length
                 using (var streamReader = new StreamReader(context.Request.Body))
                 {
                     try
                     {
-                        var jsonString = await streamReader.ReadToEndAsync();
-                        var jObject = JObject.Parse(jsonString);
-                        Task.Run(() => Process(jObject));
+                        var jsonString = await streamReader .ReadToEndAsync();
+                        var jToken = JToken.Parse(jsonString);
+                        Task.Run(() => ProcessJToken(jToken));
                         context.Response.StatusCode = (int)HttpStatusCode.Accepted;
                     }
                     catch (Exception ex)
@@ -65,7 +68,30 @@ namespace NuGet.Services.Metrics.Core
             }
         }
 
-        private async Task Process(JObject jObject)
+        private async Task ProcessJToken(JToken jToken)
+        {
+            if (jToken is JObject)
+            {
+                await ProcessJObject((JObject)jToken);
+            }
+            else if (jToken is JArray)
+            {
+                await ProcessJArray((JArray)jToken);
+            }
+        }
+
+        private async Task ProcessJArray(JArray jArray)
+        {
+            foreach (var item in jArray)
+            {
+                if (item is JObject)
+                {
+                    await ProcessJObject((JObject)item);
+                }
+            }
+        }
+
+        private async Task ProcessJObject(JObject jObject)
         {
             Interlocked.Increment(ref _count);
             int count = _count;
