@@ -108,7 +108,8 @@ namespace NuGet.Services.Metrics.Core.Tests
             Assert.Equal(expected, actualResponse.StatusCode) ;
             if (actualResponse.StatusCode == HttpStatusCode.MethodNotAllowed)
             {
-                // TODO: Check that the "Allow" header is set appropriately in the Http response
+                var actualAllowHeaderValue = actualResponse.Content.Headers.GetValues(HttpResponseHeader.Allow.ToString()).SingleOrDefault();
+                Assert.True(String.Equals(actualAllowHeaderValue, HttpMethod.Post.ToString(), StringComparison.OrdinalIgnoreCase));
             }
         }
     }
