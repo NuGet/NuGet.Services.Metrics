@@ -1,10 +1,10 @@
 ﻿using System;
-using System.Threading.Tasks;
-using Microsoft.Owin;
-using Owin;
-using NuGet.Services.Metrics.Core;
-using System.Web.Configuration;
 using System.Diagnostics;
+using System.Threading.Tasks;
+using System.Web.Configuration;
+using Microsoft.Owin;
+using NuGet.Services.Metrics.Core;
+using Owin;
 
 [assembly: OwinStartup(typeof(NuGet.Services.Metrics.Website.WebsiteStartup))]
 
@@ -15,8 +15,10 @@ namespace NuGet.Services.Metrics.Website
         private PackageStatsHandler _packageStatsHandler;
         private const string SqlConfigurationKey = "Metrics.SqlServer";
         private const string CommandTimeoutKey = "Metrics.CommandTimeout";
+        private const string CommandRetriesKey = "Metrics.CommandRetries";
         public void Configuration(IAppBuilder appBuilder)
         {
+            Trace.TraceInformation("Starting Metrics Service Website...");
             var connectionStringSetting = WebConfigurationManager.ConnectionStrings[SqlConfigurationKey];
             if (connectionStringSetting == null)
             {
@@ -30,7 +32,14 @@ namespace NuGet.Services.Metrics.Website
                 Int32.TryParse(commandTimeoutString, out commandTimeout);
             }
 
-            _packageStatsHandler = new PackageStatsHandler(connectionStringSetting.ConnectionString, commandTimeout);
+            var commandRetriesString = WebConfigurationManager.AppSettings[CommandRetriesKey];
+            int commandRetries = 0;
+            if (!String.IsNullOrEmpty(commandRetriesString))
+            {
+                Int32.TryParse(commandRetriesString, out commandRetries);
+            }
+
+            _packageStatsHandler = new PackageStatsHandler(connectionStringSetting.ConnectionString, commandTimeout, commandRetries);
             appBuilder.Run(Invoke);
         }
 
