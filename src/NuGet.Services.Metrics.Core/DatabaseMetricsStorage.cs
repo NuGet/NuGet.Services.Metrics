@@ -54,22 +54,21 @@ AND			NormalizedVersion = @normalizedVersion), 'unknown', @userAgent, @operation
             var dependentPackage = JTokenToString(jObject[DependentPackageKey]);
             var projectGuids = JTokenToString(jObject[ProjectGuidsKey]);
 
-            using (var connection = new SqlConnection(_cstr.ConnectionString))
+            bool retry = true;
+            int commandRetries = 0;
+            while (retry)
             {
-                await connection.OpenAsync();
-                var command = new SqlCommand(InsertQuery, connection);
-                command.CommandTimeout = _commandTimeout;
-                command.Parameters.AddWithValue(IdParam, id);
-                command.Parameters.AddWithValue(NormalizedVersionParam, version);
-                command.Parameters.AddWithValue(UserAgentParam, GetSqlValue(userAgent));
-                command.Parameters.AddWithValue(OperationParam, GetSqlValue(operation));
-                command.Parameters.AddWithValue(DependentPackageParam, GetSqlValue(dependentPackage));
-                command.Parameters.AddWithValue(ProjectGuidsParam, GetSqlValue(projectGuids));
-
-                bool retry = true;
-                int commandRetries = 0;
-                while (commandRetries++ < _commandRetries && retry)
+                using (var connection = new SqlConnection(_cstr.ConnectionString))
                 {
+                    await connection.OpenAsync();
+                    var command = new SqlCommand(InsertQuery, connection);
+                    command.CommandTimeout = _commandTimeout;
+                    command.Parameters.AddWithValue(IdParam, id);
+                    command.Parameters.AddWithValue(NormalizedVersionParam, version);
+                    command.Parameters.AddWithValue(UserAgentParam, GetSqlValue(userAgent));
+                    command.Parameters.AddWithValue(OperationParam, GetSqlValue(operation));
+                    command.Parameters.AddWithValue(DependentPackageParam, GetSqlValue(dependentPackage));
+                    command.Parameters.AddWithValue(ProjectGuidsParam, GetSqlValue(projectGuids));
                     try
                     {
                         await command.ExecuteNonQueryAsync();
@@ -77,7 +76,13 @@ AND			NormalizedVersion = @normalizedVersion), 'unknown', @userAgent, @operation
                     }
                     catch (SqlException ex)
                     {
-                        Trace.TraceError(String.Format("Sql Exception Message : {0}, Command timeout: {1}", ex.Message, _commandTimeout));
+                        // SqlException.Number is equal to -2 if the exception is a timeout
+                        // So, if ex.Number != -2, it is not a timeout, throw. Don't retry
+                        // Also, don't retry if the number of retries has exceeded the limit
+                        if (ex.Number != -2 || commandRetries++ >= _commandRetries)
+                            throw ex;
+
+                        Trace.TraceError(String.Format("SqlException timeout encountered. Message : {0}, Command timeout in place: {1}. Retrying... Retry Attempt : {2}", ex.Message, _commandTimeout, commandRetries));
                     }
                 }
             }
