@@ -11,9 +11,11 @@ namespace MetricsTestConsoleApp
         private PackageStatsHandler _packageStatsHandler;
         private const string ConnectionString = "Data Source=(LocalDB)\\v11.0;Integrated Security=SSPI;Initial Catalog=NuGetGallery";
         private const int CommandTimeout = 5;
+        private const string CatalogIndexUrl = "http://localhost:8000/CatalogMetricsStorage";
+        private const bool IsLocalCatalog = true;
         public void Configuration(IAppBuilder appBuilder)
         {            
-            _packageStatsHandler = new PackageStatsHandler(ConnectionString, CommandTimeout);
+            _packageStatsHandler = new PackageStatsHandler(ConnectionString, CommandTimeout, CatalogIndexUrl, IsLocalCatalog);
             appBuilder.Run(Invoke);
         }
 

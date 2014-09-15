@@ -18,13 +18,22 @@ namespace NuGet.Services.Metrics.Core
         private static readonly PathString Root = new PathString("/");
         private static readonly PathString DownloadEvent = new PathString("/DownloadEvent");
 
-        public PackageStatsHandler(string connectionString, int commandTimeout)
+        public PackageStatsHandler(string connectionString, int commandTimeout, string catalogIndexUrl, bool isLocalCatalog)
         {
             if (String.IsNullOrEmpty(connectionString))
             {
                 throw new ArgumentException("Metrics.SqlServer is not present in the configuration");
             }
-            _metricsStorage = new DatabaseMetricsStorage(connectionString, commandTimeout);
+
+            if(String.IsNullOrEmpty(catalogIndexUrl))
+            {
+                // CatalogIndexUrl is not provided. Assume that database should be used for storing package statistics
+                _metricsStorage = new DatabaseMetricsStorage(connectionString, commandTimeout);
+            }
+            else
+            {
+                _metricsStorage = new CatalogMetricsStorage(connectionString, commandTimeout, catalogIndexUrl, isLocalCatalog);
+            }
         }
 
         public async Task Invoke(IOwinContext context)

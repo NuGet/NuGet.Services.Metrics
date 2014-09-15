@@ -15,6 +15,8 @@ namespace NuGet.Services.Metrics.Website
         private PackageStatsHandler _packageStatsHandler;
         private const string SqlConfigurationKey = "Metrics.SqlServer";
         private const string CommandTimeoutKey = "Metrics.CommandTimeout";
+        private const string CatalogIndexUrlKey = "Metrics.CatalogIndexUrl";
+        private const string IsLocalCatalogKey = "Metrics.IsLocalCatalog";
         public void Configuration(IAppBuilder appBuilder)
         {
             var connectionStringSetting = WebConfigurationManager.ConnectionStrings[SqlConfigurationKey];
@@ -30,7 +32,15 @@ namespace NuGet.Services.Metrics.Website
                 Int32.TryParse(commandTimeoutString, out commandTimeout);
             }
 
-            _packageStatsHandler = new PackageStatsHandler(connectionStringSetting.ConnectionString, commandTimeout);
+            string catalogIndexUrl = WebConfigurationManager.AppSettings[CatalogIndexUrlKey];
+            string isLocalCatalogString = WebConfigurationManager.AppSettings[IsLocalCatalogKey];
+            bool isLocalCatalog = false;
+            if(!String.IsNullOrEmpty(isLocalCatalogString))
+            {
+                isLocalCatalog = Boolean.TryParse(isLocalCatalogString, out isLocalCatalog);
+            }
+
+            _packageStatsHandler = new PackageStatsHandler(connectionStringSetting.ConnectionString, commandTimeout, catalogIndexUrl, isLocalCatalog);
             appBuilder.Run(Invoke);
         }
 

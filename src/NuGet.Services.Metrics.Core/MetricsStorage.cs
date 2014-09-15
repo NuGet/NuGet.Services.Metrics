@@ -20,10 +20,10 @@ namespace NuGet.Services.Metrics.Core
         protected string JTokenToString(JToken token)
         {
             if (token == null)
-                return null;
+                return String.Empty;
 
             var str = token.ToString();
-            return String.IsNullOrEmpty(str) ? null : str;
+            return String.IsNullOrEmpty(str) ? String.Empty : str;
         }
     }
 }
