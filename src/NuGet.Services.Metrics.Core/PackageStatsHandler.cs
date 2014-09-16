@@ -6,25 +6,47 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Owin;
 using Newtonsoft.Json.Linq;
+using System.Collections.Specialized;
 
 
 namespace NuGet.Services.Metrics.Core
 {
     public class PackageStatsHandler
     {
+        public const string SqlConfigurationKey = "Metrics.SqlServer";
+        public const string CommandTimeoutKey = "Metrics.CommandTimeout";
+        public const string CatalogIndexUrlKey = "Metrics.CatalogIndexUrl";
+        public const string IsLocalCatalogKey = "Metrics.IsLocalCatalog";
+
         private readonly MetricsStorage _metricsStorage;
         private int _count = 0;
         private const string HTTPPost = "POST";
         private static readonly PathString Root = new PathString("/");
         private static readonly PathString DownloadEvent = new PathString("/DownloadEvent");
 
-        public PackageStatsHandler(string connectionString, int commandTimeout, string catalogIndexUrl, bool isLocalCatalog)
+        public PackageStatsHandler(NameValueCollection appSettings)
         {
+            string connectionString = appSettings[SqlConfigurationKey];
             if (String.IsNullOrEmpty(connectionString))
             {
                 throw new ArgumentException("Metrics.SqlServer is not present in the configuration");
             }
 
+            var commandTimeoutString = appSettings[PackageStatsHandler.CommandTimeoutKey];
+            int commandTimeout = 0;
+            if (!String.IsNullOrEmpty(commandTimeoutString))
+            {
+                Int32.TryParse(commandTimeoutString, out commandTimeout);
+            }
+
+            string isLocalCatalogString = appSettings[PackageStatsHandler.IsLocalCatalogKey];
+            bool isLocalCatalog = false;
+            if (!String.IsNullOrEmpty(isLocalCatalogString))
+            {
+                isLocalCatalog = Boolean.TryParse(isLocalCatalogString, out isLocalCatalog);
+            }
+
+            string catalogIndexUrl = appSettings[PackageStatsHandler.CatalogIndexUrlKey];
             if(String.IsNullOrEmpty(catalogIndexUrl))
             {
                 // CatalogIndexUrl is not provided. Assume that database should be used for storing package statistics

@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Microsoft.Owin;
 using NuGet.Services.Metrics.Core;
 using Owin;
+using System.Collections.Specialized;
 
 namespace MetricsTestConsoleApp
 {
@@ -14,8 +15,14 @@ namespace MetricsTestConsoleApp
         private const string CatalogIndexUrl = "http://localhost:8000/CatalogMetricsStorage";
         private const bool IsLocalCatalog = true;
         public void Configuration(IAppBuilder appBuilder)
-        {            
-            _packageStatsHandler = new PackageStatsHandler(ConnectionString, CommandTimeout, CatalogIndexUrl, IsLocalCatalog);
+        {
+            NameValueCollection appSettings = new NameValueCollection();
+            appSettings.Add(PackageStatsHandler.SqlConfigurationKey, ConnectionString);
+            appSettings.Add(PackageStatsHandler.CommandTimeoutKey, CommandTimeout.ToString());
+            appSettings.Add(PackageStatsHandler.CatalogIndexUrlKey, CatalogIndexUrl);
+            appSettings.Add(PackageStatsHandler.IsLocalCatalogKey, IsLocalCatalog.ToString());
+
+            _packageStatsHandler = new PackageStatsHandler(appSettings);
             appBuilder.Run(Invoke);
         }
 

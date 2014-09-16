@@ -13,34 +13,16 @@ namespace NuGet.Services.Metrics.Website
     public class WebsiteStartup
     {
         private PackageStatsHandler _packageStatsHandler;
-        private const string SqlConfigurationKey = "Metrics.SqlServer";
-        private const string CommandTimeoutKey = "Metrics.CommandTimeout";
-        private const string CatalogIndexUrlKey = "Metrics.CatalogIndexUrl";
-        private const string IsLocalCatalogKey = "Metrics.IsLocalCatalog";
         public void Configuration(IAppBuilder appBuilder)
         {
-            var connectionStringSetting = WebConfigurationManager.ConnectionStrings[SqlConfigurationKey];
+            var connectionStringSetting = WebConfigurationManager.ConnectionStrings[PackageStatsHandler.SqlConfigurationKey];
             if (connectionStringSetting == null)
             {
-                throw new ArgumentNullException("Connection String '" + SqlConfigurationKey + "' cannot be found");
+                throw new ArgumentNullException("Connection String '" + PackageStatsHandler.SqlConfigurationKey + "' cannot be found");
             }
+            WebConfigurationManager.AppSettings[PackageStatsHandler.SqlConfigurationKey] = connectionStringSetting.ConnectionString;
 
-            var commandTimeoutString = WebConfigurationManager.AppSettings[CommandTimeoutKey];
-            int commandTimeout = 0;
-            if (!String.IsNullOrEmpty(commandTimeoutString))
-            {
-                Int32.TryParse(commandTimeoutString, out commandTimeout);
-            }
-
-            string catalogIndexUrl = WebConfigurationManager.AppSettings[CatalogIndexUrlKey];
-            string isLocalCatalogString = WebConfigurationManager.AppSettings[IsLocalCatalogKey];
-            bool isLocalCatalog = false;
-            if(!String.IsNullOrEmpty(isLocalCatalogString))
-            {
-                isLocalCatalog = Boolean.TryParse(isLocalCatalogString, out isLocalCatalog);
-            }
-
-            _packageStatsHandler = new PackageStatsHandler(connectionStringSetting.ConnectionString, commandTimeout, catalogIndexUrl, isLocalCatalog);
+            _packageStatsHandler = new PackageStatsHandler(WebConfigurationManager.AppSettings);
             appBuilder.Run(Invoke);
         }
 
