@@ -1,4 +1,6 @@
-﻿using Newtonsoft.Json.Linq;
+﻿using Microsoft.WindowsAzure.Storage;
+using Microsoft.WindowsAzure.Storage.Blob;
+using Newtonsoft.Json.Linq;
 using NuGet.Services.Metadata.Catalog.Maintenance;
 using NuGet.Services.Metadata.Catalog.Persistence;
 using NuGet.Services.Metadata.Catalog.WarehouseIntegration;
@@ -7,6 +9,7 @@ using System.Collections.Concurrent;
 using System.Collections.Specialized;
 using System.Data.SqlClient;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -36,6 +39,32 @@ namespace NuGet.Services.Metrics.Core
 
         private readonly SqlConnectionStringBuilder _cstr;
         private readonly int _commandTimeout;
+
+        private static CloudBlobDirectory GetBlobDirectory(CloudStorageAccount account, string path)
+        {
+            var client = account.CreateCloudBlobClient();
+            string[] segments = path.Split('/');
+            string containerName;
+            string prefix;
+
+            if (segments.Length < 2)
+            {
+                // No "/" segments, so the path is a container and the catalog is at the root...
+                containerName = path;
+                prefix = String.Empty;
+            }
+            else
+            {
+                // Found "/" segments, but we need to get the first segment to use as the container...
+                containerName = segments[0];
+                prefix = String.Join("/", segments.Skip(1)) + "/";
+            }
+
+            var container = client.GetContainerReference(containerName);
+            container.CreateIfNotExists();
+            var dir = container.GetDirectoryReference(prefix);
+            return dir;
+        }
         public CatalogMetricsStorage(string connectionString, int commandTimeout, string catalogIndexUrl, NameValueCollection appSettings)
         {
             _cstr = new SqlConnectionStringBuilder(connectionString);
@@ -51,7 +80,10 @@ namespace NuGet.Services.Metrics.Core
             }
             else
             {
-                throw new NotImplementedException("Only local Catalog has been implemented");
+                var catalogStorageAccout = CloudStorageAccount.Parse(appSettings[MetricsAppSettings.CatalogStorageAccountKey]);
+                string catalogPath = appSettings[MetricsAppSettings.CatalogPathKey];
+                var catalogDirectory = GetBlobDirectory(catalogStorageAccout, catalogPath);
+                CatalogStorage = new AzureStorage(catalogDirectory);
             }
 
             Task.Run(() => CatalogCommitRunner());
@@ -120,6 +152,7 @@ namespace NuGet.Services.Metrics.Core
 
         private void CatalogCommitRunner()
         {
+            Trace.WriteLine("CatalogCommitRunner ThreadId:" + Environment.CurrentManagedThreadId);
             using (CatalogWriter writer = new CatalogWriter(CatalogStorage, new CatalogContext(), CatalogPageSize))
             {
                 while(CurrentStatsQueue != null)
@@ -134,7 +167,6 @@ namespace NuGet.Services.Metrics.Core
         {
             try
             {
-                Trace.WriteLine("CatalogCommitRunner ThreadId:" + Environment.CurrentManagedThreadId);
                 ConcurrentQueue<JToken> headStatsQueue;
                 while (StatsQueueOfQueues.TryDequeue(out headStatsQueue))
                 {

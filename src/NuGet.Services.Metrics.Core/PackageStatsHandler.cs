@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Microsoft.Owin;
 using Newtonsoft.Json.Linq;
 using System.Collections.Specialized;
+using System.Collections.Generic;
 
 
 namespace NuGet.Services.Metrics.Core
@@ -15,11 +16,14 @@ namespace NuGet.Services.Metrics.Core
     {
         public const string SqlConfigurationKey = "Metrics.SqlServer";
         public const string CommandTimeoutKey = "Metrics.CommandTimeout";
+        public const string CatalogStorageAccountKey = "Metrics.CatalogStorageAccount";
+        public const string CatalogPathKey = "Metrics.CatalogPath";
         public const string CatalogIndexUrlKey = "Metrics.CatalogIndexUrl";
         public const string IsLocalCatalogKey = "Metrics.IsLocalCatalog";
         public const string CatalogPageSizeKey = "Metrics.CatalogPageSize";
         // TODO : public const string CatalogCommitSizeKey = "Metrics.CatalogCommitSize";
         public const string CatalogItemPackageStatsCountKey = "Metrics.CatalogItemPackageStatsCount";
+        public const string ShouldUseDBAndCatalog = "Metrics.ShouldUseDBAndCatalog";
 
         public static int? GetIntSetting(NameValueCollection appSettings, string key)
         {
@@ -47,7 +51,7 @@ namespace NuGet.Services.Metrics.Core
     }
     public class PackageStatsHandler
     {
-        private readonly MetricsStorage _metricsStorage;
+        private readonly List<MetricsStorage> _metricsStorageList;
         private int _count = 0;
         private const string HTTPPost = "POST";
         private static readonly PathString Root = new PathString("/");
@@ -64,14 +68,24 @@ namespace NuGet.Services.Metrics.Core
             int commandTimeout = MetricsAppSettings.GetIntSetting(appSettings, MetricsAppSettings.CommandTimeoutKey) ?? 0;
             string catalogIndexUrl = appSettings[MetricsAppSettings.CatalogIndexUrlKey];
 
+            _metricsStorageList = new List<MetricsStorage>();
             if(String.IsNullOrEmpty(catalogIndexUrl))
             {
-                // CatalogIndexUrl is not provided. Assume that database should be used for storing package statistics
-                _metricsStorage = new DatabaseMetricsStorage(connectionString, commandTimeout);
+                // CatalogIndexUrl is not provided. Only database should be used for storing package statistics
+                _metricsStorageList.Add(new DatabaseMetricsStorage(connectionString, commandTimeout));
             }
             else
             {
-                _metricsStorage = new CatalogMetricsStorage(connectionString, commandTimeout, catalogIndexUrl, appSettings);
+                // CatalogIndexUrl is provided. Clearly, Catalog should be used. Check if DB should be used as well
+                bool shouldUseDBAndCatalog = MetricsAppSettings.GetBooleanSetting(appSettings, MetricsAppSettings.ShouldUseDBAndCatalog);
+                if(shouldUseDBAndCatalog)
+                {
+                    // DB should be used too. Add it to the list of Metrics Storage
+                    _metricsStorageList.Add(new DatabaseMetricsStorage(connectionString, commandTimeout));
+                }
+
+                // Since CatalogIndexUrl is provided, Catalog should be used to store Metrics
+                _metricsStorageList.Add(new CatalogMetricsStorage(connectionString, commandTimeout, catalogIndexUrl, appSettings));
             }
         }
 
@@ -145,15 +159,18 @@ namespace NuGet.Services.Metrics.Core
             Interlocked.Increment(ref _count);
             int count = _count;
             Trace.WriteLine("Processing count : " + count);
-            try
+            foreach(var metricsStorage in _metricsStorageList)
             {
-                await _metricsStorage.AddPackageDownloadStatistics(jObject);
-                Trace.TraceInformation("Package Download Statistics processed successfully");
-            }
-            catch (Exception ex)
-            {
-                // Catch all exceptions
-                Trace.TraceError(ex.ToString());
+                try
+                {
+                    await metricsStorage.AddPackageDownloadStatistics(jObject);
+                    Trace.TraceInformation("Package Download Statistics processed successfully");
+                }
+                catch (Exception ex)
+                {
+                    // Catch all exceptions
+                    Trace.TraceError(ex.ToString());
+                }
             }
             Trace.WriteLine("Completed processing for count: " + count);
         }

@@ -12,18 +12,24 @@ namespace MetricsTestConsoleApp
         private PackageStatsHandler _packageStatsHandler;
         private const string ConnectionString = "Data Source=(LocalDB)\\v11.0;Integrated Security=SSPI;Initial Catalog=NuGetGallery";
         private const int CommandTimeout = 5;
+        private const string CatalogStorageAccount = @"UseDevelopmentStorage=true;DevelopmentStorageProxyUri=http://localhost:8000";
+        private const string CatalogPath = "catalogmetricsstorage";
         private const string CatalogIndexUrl = "http://localhost:8000/CatalogMetricsStorage";
         private const bool IsLocalCatalog = true;
         private const int CatalogItemPackageStatsCount = 2;
+        private const bool ShouldUseDBAndCatalog = true;
 
         public void Configuration(IAppBuilder appBuilder)
         {
             NameValueCollection appSettings = new NameValueCollection();
             appSettings.Add(MetricsAppSettings.SqlConfigurationKey, ConnectionString);
             appSettings.Add(MetricsAppSettings.CommandTimeoutKey, CommandTimeout.ToString());
+            appSettings.Add(MetricsAppSettings.CatalogStorageAccountKey, CatalogStorageAccount.ToString());
+            appSettings.Add(MetricsAppSettings.CatalogPathKey, CatalogPath);
             appSettings.Add(MetricsAppSettings.CatalogIndexUrlKey, CatalogIndexUrl);
             appSettings.Add(MetricsAppSettings.IsLocalCatalogKey, IsLocalCatalog.ToString());
             appSettings.Add(MetricsAppSettings.CatalogItemPackageStatsCountKey, CatalogItemPackageStatsCount.ToString());
+            appSettings.Add(MetricsAppSettings.ShouldUseDBAndCatalog, ShouldUseDBAndCatalog.ToString());
 
             _packageStatsHandler = new PackageStatsHandler(appSettings);
             appBuilder.Run(Invoke);
