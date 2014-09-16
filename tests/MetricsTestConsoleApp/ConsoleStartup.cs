@@ -17,10 +17,10 @@ namespace MetricsTestConsoleApp
         public void Configuration(IAppBuilder appBuilder)
         {
             NameValueCollection appSettings = new NameValueCollection();
-            appSettings.Add(PackageStatsHandler.SqlConfigurationKey, ConnectionString);
-            appSettings.Add(PackageStatsHandler.CommandTimeoutKey, CommandTimeout.ToString());
-            appSettings.Add(PackageStatsHandler.CatalogIndexUrlKey, CatalogIndexUrl);
-            appSettings.Add(PackageStatsHandler.IsLocalCatalogKey, IsLocalCatalog.ToString());
+            appSettings.Add(MetricsAppSettings.SqlConfigurationKey, ConnectionString);
+            appSettings.Add(MetricsAppSettings.CommandTimeoutKey, CommandTimeout.ToString());
+            appSettings.Add(MetricsAppSettings.CatalogIndexUrlKey, CatalogIndexUrl);
+            appSettings.Add(MetricsAppSettings.IsLocalCatalogKey, IsLocalCatalog.ToString());
 
             _packageStatsHandler = new PackageStatsHandler(appSettings);
             appBuilder.Run(Invoke);

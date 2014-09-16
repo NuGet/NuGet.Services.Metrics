@@ -11,13 +11,42 @@ using System.Collections.Specialized;
 
 namespace NuGet.Services.Metrics.Core
 {
-    public class PackageStatsHandler
+    public static class MetricsAppSettings
     {
         public const string SqlConfigurationKey = "Metrics.SqlServer";
         public const string CommandTimeoutKey = "Metrics.CommandTimeout";
         public const string CatalogIndexUrlKey = "Metrics.CatalogIndexUrl";
         public const string IsLocalCatalogKey = "Metrics.IsLocalCatalog";
+        public const string CatalogPageSizeKey = "Metrics.CatalogPageSize";
+        public const string CatalogCommitSizeKey = "Metrics.CatalogCommitSize";
+        public const string CatalogItemPackageStatsCountKey = "Metrics.CatalogItemPackageStatsCount";
 
+        public static int? GetIntSetting(NameValueCollection appSettings, string key)
+        {
+            string intString = appSettings[key];
+            int intValue;
+            if (!String.IsNullOrEmpty(intString) && Int32.TryParse(intString, out intValue))
+            {
+                return intValue;
+            }
+
+            return null;
+        }
+
+        public static bool GetBooleanSetting(NameValueCollection appSettings, string key)
+        {
+            string booleanString = appSettings[key];
+            bool booleanValue = false;
+            if (!String.IsNullOrEmpty(booleanString) && Boolean.TryParse(booleanString, out booleanValue))
+            {
+                return booleanValue;
+            }
+
+            return false;
+        }
+    }
+    public class PackageStatsHandler
+    {
         private readonly MetricsStorage _metricsStorage;
         private int _count = 0;
         private const string HTTPPost = "POST";
@@ -26,27 +55,15 @@ namespace NuGet.Services.Metrics.Core
 
         public PackageStatsHandler(NameValueCollection appSettings)
         {
-            string connectionString = appSettings[SqlConfigurationKey];
+            string connectionString = appSettings[MetricsAppSettings.SqlConfigurationKey];
             if (String.IsNullOrEmpty(connectionString))
             {
                 throw new ArgumentException("Metrics.SqlServer is not present in the configuration");
             }
 
-            var commandTimeoutString = appSettings[PackageStatsHandler.CommandTimeoutKey];
-            int commandTimeout = 0;
-            if (!String.IsNullOrEmpty(commandTimeoutString))
-            {
-                Int32.TryParse(commandTimeoutString, out commandTimeout);
-            }
+            int commandTimeout = MetricsAppSettings.GetIntSetting(appSettings, MetricsAppSettings.CommandTimeoutKey) ?? 0;
+            string catalogIndexUrl = appSettings[MetricsAppSettings.CatalogIndexUrlKey];
 
-            string isLocalCatalogString = appSettings[PackageStatsHandler.IsLocalCatalogKey];
-            bool isLocalCatalog = false;
-            if (!String.IsNullOrEmpty(isLocalCatalogString))
-            {
-                isLocalCatalog = Boolean.TryParse(isLocalCatalogString, out isLocalCatalog);
-            }
-
-            string catalogIndexUrl = appSettings[PackageStatsHandler.CatalogIndexUrlKey];
             if(String.IsNullOrEmpty(catalogIndexUrl))
             {
                 // CatalogIndexUrl is not provided. Assume that database should be used for storing package statistics
@@ -54,7 +71,7 @@ namespace NuGet.Services.Metrics.Core
             }
             else
             {
-                _metricsStorage = new CatalogMetricsStorage(connectionString, commandTimeout, catalogIndexUrl, isLocalCatalog);
+                _metricsStorage = new CatalogMetricsStorage(connectionString, commandTimeout, catalogIndexUrl, appSettings);
             }
         }
 

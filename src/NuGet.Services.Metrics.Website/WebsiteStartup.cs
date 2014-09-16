@@ -15,12 +15,12 @@ namespace NuGet.Services.Metrics.Website
         private PackageStatsHandler _packageStatsHandler;
         public void Configuration(IAppBuilder appBuilder)
         {
-            var connectionStringSetting = WebConfigurationManager.ConnectionStrings[PackageStatsHandler.SqlConfigurationKey];
+            var connectionStringSetting = WebConfigurationManager.ConnectionStrings[MetricsAppSettings.SqlConfigurationKey];
             if (connectionStringSetting == null)
             {
-                throw new ArgumentNullException("Connection String '" + PackageStatsHandler.SqlConfigurationKey + "' cannot be found");
+                throw new ArgumentNullException("Connection String '" + MetricsAppSettings.SqlConfigurationKey + "' cannot be found");
             }
-            WebConfigurationManager.AppSettings[PackageStatsHandler.SqlConfigurationKey] = connectionStringSetting.ConnectionString;
+            WebConfigurationManager.AppSettings[MetricsAppSettings.SqlConfigurationKey] = connectionStringSetting.ConnectionString;
 
             _packageStatsHandler = new PackageStatsHandler(WebConfigurationManager.AppSettings);
             appBuilder.Run(Invoke);

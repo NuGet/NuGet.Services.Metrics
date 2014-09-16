@@ -4,8 +4,10 @@ using NuGet.Services.Metadata.Catalog.Persistence;
 using NuGet.Services.Metadata.Catalog.WarehouseIntegration;
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Specialized;
 using System.Data.SqlClient;
 using System.Diagnostics;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace NuGet.Services.Metrics.Core
@@ -14,8 +16,12 @@ namespace NuGet.Services.Metrics.Core
     {
         private const string IdParam = "@id";
         private const string NormalizedVersionParam = "@normalizedVersion";
-        private static readonly ConcurrentQueue<JToken> StatsQueue = new ConcurrentQueue<JToken>();
+        private static ConcurrentQueue<JToken> CurrentStatsQueue = new ConcurrentQueue<JToken>();
+        private static ConcurrentQueue<ConcurrentQueue<JToken>> StatsQueueOfQueues = new ConcurrentQueue<ConcurrentQueue<JToken>>();
         private Storage CatalogStorage { get; set; }
+        private int CatalogPageSize { get; set; }
+        private int CatalogItemPackageStatsCount { get; set; }
+        private int CatalogCommitSize { get; set; }
 
         private const string PackageExistenceCheckQuery = @"
                 SELECT		p.[Key],
@@ -31,10 +37,16 @@ namespace NuGet.Services.Metrics.Core
 
         private readonly SqlConnectionStringBuilder _cstr;
         private readonly int _commandTimeout;
-        public CatalogMetricsStorage(string connectionString, int commandTimeout, string catalogIndexUrl, bool isLocalCatalog)
+        public CatalogMetricsStorage(string connectionString, int commandTimeout, string catalogIndexUrl, NameValueCollection appSettings)
         {
             _cstr = new SqlConnectionStringBuilder(connectionString);
             _commandTimeout = commandTimeout > 0 ? commandTimeout : 5;
+
+            CatalogPageSize = MetricsAppSettings.GetIntSetting(appSettings, MetricsAppSettings.CatalogPageSizeKey) ?? 500;
+            CatalogItemPackageStatsCount = MetricsAppSettings.GetIntSetting(appSettings, MetricsAppSettings.CatalogItemPackageStatsCountKey) ?? 1000;
+            CatalogCommitSize = MetricsAppSettings.GetIntSetting(appSettings, MetricsAppSettings.CatalogCommitSizeKey) ?? 10;
+
+            bool isLocalCatalog = MetricsAppSettings.GetBooleanSetting(appSettings, MetricsAppSettings.IsLocalCatalogKey);
             if(isLocalCatalog)
             {
                 CatalogStorage = new FileStorage(catalogIndexUrl, @"c:\data\site\CatalogMetricsStorage");
@@ -43,6 +55,8 @@ namespace NuGet.Services.Metrics.Core
             {
                 throw new NotImplementedException("Only local Catalog has been implemented");
             }
+
+            Task.Run(() => CatalogCommitRunner());
         }
         public override async Task AddPackageDownloadStatistics(JObject jObject)
         {
@@ -98,31 +112,37 @@ namespace NuGet.Services.Metrics.Core
 
         private async Task AddToCatalog(JToken row)
         {
-            StatsQueue.Enqueue(row);
-            if(StatsQueue.Count >= 10)
+            CurrentStatsQueue.Enqueue(row);
+            if(CurrentStatsQueue.Count >= CatalogItemPackageStatsCount)
             {
-                JArray statsCatalogItem = new JArray();
+                StatsQueueOfQueues.Enqueue(Interlocked.Exchange(ref CurrentStatsQueue, new ConcurrentQueue<JToken>()));
+            }
+        }
 
-                JToken packageStats;
-                while(StatsQueue.TryDequeue(out packageStats))
+        private void CatalogCommitRunner()
+        {
+            using (CatalogWriter writer = new CatalogWriter(CatalogStorage, new CatalogContext(), CatalogPageSize))
+            {
+                ConcurrentQueue<JToken> headStatsQueue;
+                while (StatsQueueOfQueues.TryDequeue(out headStatsQueue))
                 {
-                    statsCatalogItem.Add(packageStats);
-                }
+                    JArray statsCatalogItem = new JArray();
+                    foreach (JToken packageStats in headStatsQueue)
+                    {
+                        statsCatalogItem.Add(packageStats);
+                    }
+                    // Note that at this point, DateTime is already in UTC
+                    string minDownloadTimestampString = statsCatalogItem[0][0].ToString();
+                    DateTime minDownloadTimestamp = DateTime.Parse(minDownloadTimestampString, null, System.Globalization.DateTimeStyles.RoundtripKind);
 
-                // Note that at this point, DateTime is already in UTC
-                string minDownloadTimestampString = statsCatalogItem[0][0].ToString();
-                DateTime minDownloadTimestamp = DateTime.Parse(minDownloadTimestampString, null, System.Globalization.DateTimeStyles.RoundtripKind);
-
-                string maxDownloadTimestampString = statsCatalogItem[statsCatalogItem.Count - 1][0].ToString();
-                DateTime maxDownloadTimestamp = DateTime.Parse(minDownloadTimestampString, null, System.Globalization.DateTimeStyles.RoundtripKind);
-
-                using (CatalogWriter writer = new CatalogWriter(CatalogStorage, new CatalogContext(), 500))
-                {
+                    string maxDownloadTimestampString = statsCatalogItem[statsCatalogItem.Count - 1][0].ToString();
+                    DateTime maxDownloadTimestamp = DateTime.Parse(minDownloadTimestampString, null, System.Globalization.DateTimeStyles.RoundtripKind);
                     writer.Add(new StatisticsCatalogItem(statsCatalogItem,
                         "PackageStats",
                         minDownloadTimestamp,
                         maxDownloadTimestamp));
-                    await writer.Commit();
+                    writer.Commit().Wait();
+                    Thread.Sleep(1000);
                 }
             }
         }
