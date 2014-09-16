@@ -21,7 +21,6 @@ namespace NuGet.Services.Metrics.Core
         private Storage CatalogStorage { get; set; }
         private int CatalogPageSize { get; set; }
         private int CatalogItemPackageStatsCount { get; set; }
-        private int CatalogCommitSize { get; set; }
 
         private const string PackageExistenceCheckQuery = @"
                 SELECT		p.[Key],
@@ -44,7 +43,6 @@ namespace NuGet.Services.Metrics.Core
 
             CatalogPageSize = MetricsAppSettings.GetIntSetting(appSettings, MetricsAppSettings.CatalogPageSizeKey) ?? 500;
             CatalogItemPackageStatsCount = MetricsAppSettings.GetIntSetting(appSettings, MetricsAppSettings.CatalogItemPackageStatsCountKey) ?? 1000;
-            CatalogCommitSize = MetricsAppSettings.GetIntSetting(appSettings, MetricsAppSettings.CatalogCommitSizeKey) ?? 10;
 
             bool isLocalCatalog = MetricsAppSettings.GetBooleanSetting(appSettings, MetricsAppSettings.IsLocalCatalogKey);
             if(isLocalCatalog)
@@ -77,7 +75,7 @@ namespace NuGet.Services.Metrics.Core
 
                 if(reader.Read())
                 {
-                    await AddToCatalog(GetJToken(jObject, reader));
+                    await EnqueueStats(GetJToken(jObject, reader));
                 }
                 else
                 {
@@ -110,8 +108,9 @@ namespace NuGet.Services.Metrics.Core
             return row;
         }
 
-        private async Task AddToCatalog(JToken row)
+        private async Task EnqueueStats(JToken row)
         {
+            Trace.WriteLine("AddToCatalog ThreadId:" + Environment.CurrentManagedThreadId);
             CurrentStatsQueue.Enqueue(row);
             if(CurrentStatsQueue.Count >= CatalogItemPackageStatsCount)
             {
@@ -123,6 +122,19 @@ namespace NuGet.Services.Metrics.Core
         {
             using (CatalogWriter writer = new CatalogWriter(CatalogStorage, new CatalogContext(), CatalogPageSize))
             {
+                while(CurrentStatsQueue != null)
+                {
+                    Thread.Sleep(1000);
+                    CommitToCatalog(writer);
+                }
+            }
+        }
+
+        private void CommitToCatalog(CatalogWriter writer)
+        {
+            try
+            {
+                Trace.WriteLine("CatalogCommitRunner ThreadId:" + Environment.CurrentManagedThreadId);
                 ConcurrentQueue<JToken> headStatsQueue;
                 while (StatsQueueOfQueues.TryDequeue(out headStatsQueue))
                 {
@@ -144,6 +156,11 @@ namespace NuGet.Services.Metrics.Core
                     writer.Commit().Wait();
                     Thread.Sleep(1000);
                 }
+
+            }
+            catch (Exception ex)
+            {
+                Trace.TraceError(ex.ToString());
             }
         }
     }

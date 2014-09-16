@@ -18,7 +18,7 @@ namespace NuGet.Services.Metrics.Core
         public const string CatalogIndexUrlKey = "Metrics.CatalogIndexUrl";
         public const string IsLocalCatalogKey = "Metrics.IsLocalCatalog";
         public const string CatalogPageSizeKey = "Metrics.CatalogPageSize";
-        public const string CatalogCommitSizeKey = "Metrics.CatalogCommitSize";
+        // TODO : public const string CatalogCommitSizeKey = "Metrics.CatalogCommitSize";
         public const string CatalogItemPackageStatsCountKey = "Metrics.CatalogItemPackageStatsCount";
 
         public static int? GetIntSetting(NameValueCollection appSettings, string key)

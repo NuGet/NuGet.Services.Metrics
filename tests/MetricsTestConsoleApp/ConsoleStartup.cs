@@ -14,6 +14,8 @@ namespace MetricsTestConsoleApp
         private const int CommandTimeout = 5;
         private const string CatalogIndexUrl = "http://localhost:8000/CatalogMetricsStorage";
         private const bool IsLocalCatalog = true;
+        private const int CatalogItemPackageStatsCount = 2;
+
         public void Configuration(IAppBuilder appBuilder)
         {
             NameValueCollection appSettings = new NameValueCollection();
@@ -21,6 +23,7 @@ namespace MetricsTestConsoleApp
             appSettings.Add(MetricsAppSettings.CommandTimeoutKey, CommandTimeout.ToString());
             appSettings.Add(MetricsAppSettings.CatalogIndexUrlKey, CatalogIndexUrl);
             appSettings.Add(MetricsAppSettings.IsLocalCatalogKey, IsLocalCatalog.ToString());
+            appSettings.Add(MetricsAppSettings.CatalogItemPackageStatsCountKey, CatalogItemPackageStatsCount.ToString());
 
             _packageStatsHandler = new PackageStatsHandler(appSettings);
             appBuilder.Run(Invoke);
