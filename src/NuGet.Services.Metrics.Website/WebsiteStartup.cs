@@ -1,10 +1,11 @@
-﻿using System;
-using System.Threading.Tasks;
-using Microsoft.Owin;
-using Owin;
+﻿using Microsoft.Owin;
 using NuGet.Services.Metrics.Core;
-using System.Web.Configuration;
+using Owin;
+using System;
 using System.Diagnostics;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Web.Configuration;
 
 [assembly: OwinStartup(typeof(NuGet.Services.Metrics.Website.WebsiteStartup))]
 
@@ -22,7 +23,11 @@ namespace NuGet.Services.Metrics.Website
             }
             WebConfigurationManager.AppSettings[MetricsAppSettings.SqlConfigurationKey] = connectionStringSetting.ConnectionString;
 
-            _packageStatsHandler = new PackageStatsHandler(WebConfigurationManager.AppSettings);
+            var appSettingDictionary = WebConfigurationManager.AppSettings
+                                            .Cast<string>()
+                                            .Select(s => new { Key = s, Value = WebConfigurationManager.AppSettings[s] })
+                                            .ToDictionary(p => p.Key, p => p.Value);
+            _packageStatsHandler = new PackageStatsHandler(appSettingDictionary);
             appBuilder.Run(Invoke);
         }
 

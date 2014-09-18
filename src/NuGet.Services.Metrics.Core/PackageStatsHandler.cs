@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -25,9 +26,22 @@ namespace NuGet.Services.Metrics.Core
         public const string CatalogItemPackageStatsCountKey = "Metrics.CatalogItemPackageStatsCount";
         public const string ShouldUseDBAndCatalog = "Metrics.ShouldUseDBAndCatalog";
 
-        public static int? GetIntSetting(NameValueCollection appSettings, string key)
+        /// <summary>
+        /// Returns the value from the dictionary if found. Otherwise, null
+        /// </summary>
+        public static string TryGetSetting(IDictionary<string, string> appSettingDictionary, string key)
         {
-            string intString = appSettings[key];
+            string value = null;
+            appSettingDictionary.TryGetValue(key, out value);
+            return value;
+        }
+
+        /// <summary>
+        /// Returns the value as int from the dictionary if found and parsable. Otherwise, null
+        /// </summary>
+        public static int? TryGetIntSetting(IDictionary<string, string> appSettingDictionary, string key)
+        {
+            string intString = TryGetSetting(appSettingDictionary, key);
             int intValue;
             if (!String.IsNullOrEmpty(intString) && Int32.TryParse(intString, out intValue))
             {
@@ -37,9 +51,12 @@ namespace NuGet.Services.Metrics.Core
             return null;
         }
 
-        public static bool GetBooleanSetting(NameValueCollection appSettings, string key)
+        /// <summary>
+        /// Returns the value as bool from the dictionary if found and parsable. Otherwise, false
+        /// </summary>
+        public static bool TryGetBooleanSetting(IDictionary<string, string> appSettingDictionary, string key)
         {
-            string booleanString = appSettings[key];
+            string booleanString = TryGetSetting(appSettingDictionary, key);
             bool booleanValue = false;
             if (!String.IsNullOrEmpty(booleanString) && Boolean.TryParse(booleanString, out booleanValue))
             {
@@ -57,19 +74,20 @@ namespace NuGet.Services.Metrics.Core
         private static readonly PathString Root = new PathString("/");
         private static readonly PathString DownloadEvent = new PathString("/DownloadEvent");
 
-        public PackageStatsHandler(NameValueCollection appSettings)
+        public PackageStatsHandler(IDictionary<string, string> appSettingDictionary)
         {
-            string connectionString = appSettings[MetricsAppSettings.SqlConfigurationKey];
+            string connectionString = MetricsAppSettings.TryGetSetting(appSettingDictionary, MetricsAppSettings.SqlConfigurationKey);
             if (String.IsNullOrEmpty(connectionString))
             {
                 throw new ArgumentException("Metrics.SqlServer is not present in the configuration");
             }
 
-            int commandTimeout = MetricsAppSettings.GetIntSetting(appSettings, MetricsAppSettings.CommandTimeoutKey) ?? 0;
-            string catalogIndexUrl = appSettings[MetricsAppSettings.CatalogIndexUrlKey];
+            int commandTimeout = MetricsAppSettings.TryGetIntSetting(appSettingDictionary, MetricsAppSettings.CommandTimeoutKey) ?? 0;
+            string catalogIndexUrl = MetricsAppSettings.TryGetSetting(appSettingDictionary, MetricsAppSettings.CatalogIndexUrlKey);
+            string catalogStorageAccount = MetricsAppSettings.TryGetSetting(appSettingDictionary, MetricsAppSettings.CatalogStorageAccountKey);
 
             _metricsStorageList = new List<MetricsStorage>();
-            if(String.IsNullOrEmpty(catalogIndexUrl))
+            if(String.IsNullOrEmpty(catalogIndexUrl) && String.IsNullOrEmpty(catalogStorageAccount))
             {
                 // CatalogIndexUrl is not provided. Only database should be used for storing package statistics
                 _metricsStorageList.Add(new DatabaseMetricsStorage(connectionString, commandTimeout));
@@ -77,7 +95,7 @@ namespace NuGet.Services.Metrics.Core
             else
             {
                 // CatalogIndexUrl is provided. Clearly, Catalog should be used. Check if DB should be used as well
-                bool shouldUseDBAndCatalog = MetricsAppSettings.GetBooleanSetting(appSettings, MetricsAppSettings.ShouldUseDBAndCatalog);
+                bool shouldUseDBAndCatalog = MetricsAppSettings.TryGetBooleanSetting(appSettingDictionary, MetricsAppSettings.ShouldUseDBAndCatalog);
                 if(shouldUseDBAndCatalog)
                 {
                     // DB should be used too. Add it to the list of Metrics Storage
@@ -85,7 +103,7 @@ namespace NuGet.Services.Metrics.Core
                 }
 
                 // Since CatalogIndexUrl is provided, Catalog should be used to store Metrics
-                _metricsStorageList.Add(new CatalogMetricsStorage(connectionString, commandTimeout, catalogIndexUrl, appSettings));
+                _metricsStorageList.Add(new CatalogMetricsStorage(connectionString, commandTimeout, appSettingDictionary));
             }
         }
 

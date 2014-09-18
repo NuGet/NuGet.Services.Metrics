@@ -6,6 +6,7 @@ using NuGet.Services.Metadata.Catalog.Persistence;
 using NuGet.Services.Metadata.Catalog.WarehouseIntegration;
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Data.SqlClient;
 using System.Diagnostics;
@@ -65,24 +66,26 @@ namespace NuGet.Services.Metrics.Core
             var dir = container.GetDirectoryReference(prefix);
             return dir;
         }
-        public CatalogMetricsStorage(string connectionString, int commandTimeout, string catalogIndexUrl, NameValueCollection appSettings)
+        public CatalogMetricsStorage(string connectionString, int commandTimeout, IDictionary<string, string> appSettingDictionary)
         {
             _cstr = new SqlConnectionStringBuilder(connectionString);
             _commandTimeout = commandTimeout > 0 ? commandTimeout : 5;
 
-            CatalogPageSize = MetricsAppSettings.GetIntSetting(appSettings, MetricsAppSettings.CatalogPageSizeKey) ?? 500;
-            CatalogItemPackageStatsCount = MetricsAppSettings.GetIntSetting(appSettings, MetricsAppSettings.CatalogItemPackageStatsCountKey) ?? 1000;
+            CatalogPageSize = MetricsAppSettings.TryGetIntSetting(appSettingDictionary, MetricsAppSettings.CatalogPageSizeKey) ?? 500;
+            CatalogItemPackageStatsCount = MetricsAppSettings.TryGetIntSetting(appSettingDictionary, MetricsAppSettings.CatalogItemPackageStatsCountKey) ?? 1000;
 
-            bool isLocalCatalog = MetricsAppSettings.GetBooleanSetting(appSettings, MetricsAppSettings.IsLocalCatalogKey);
+            bool isLocalCatalog = MetricsAppSettings.TryGetBooleanSetting(appSettingDictionary, MetricsAppSettings.IsLocalCatalogKey);
             if(isLocalCatalog)
             {
+                string catalogIndexUrl = MetricsAppSettings.TryGetSetting(appSettingDictionary, MetricsAppSettings.CatalogIndexUrlKey);
                 CatalogStorage = new FileStorage(catalogIndexUrl, @"c:\data\site\CatalogMetricsStorage");
             }
             else
             {
-                var catalogStorageAccout = CloudStorageAccount.Parse(appSettings[MetricsAppSettings.CatalogStorageAccountKey]);
-                string catalogPath = appSettings[MetricsAppSettings.CatalogPathKey];
-                var catalogDirectory = GetBlobDirectory(catalogStorageAccout, catalogPath);
+                string catalogStorageAccountKey = MetricsAppSettings.TryGetSetting(appSettingDictionary, MetricsAppSettings.CatalogStorageAccountKey);
+                var catalogStorageAccount = CloudStorageAccount.Parse(catalogStorageAccountKey);
+                string catalogPath = MetricsAppSettings.TryGetSetting(appSettingDictionary, MetricsAppSettings.CatalogPathKey);
+                var catalogDirectory = GetBlobDirectory(catalogStorageAccount, catalogPath);
                 CatalogStorage = new AzureStorage(catalogDirectory);
             }
 
