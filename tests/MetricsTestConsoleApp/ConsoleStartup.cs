@@ -15,8 +15,8 @@ namespace MetricsTestConsoleApp
         private const string ConnectionString = "Data Source=(LocalDB)\\v11.0;Integrated Security=SSPI;Initial Catalog=NuGetGallery";
         private const int CommandTimeout = 5;
         private const string CatalogStorageAccount = @"UseDevelopmentStorage=true;DevelopmentStorageProxyUri=http://localhost:8000";
-        private const string CatalogPath = "catalogmetricsstorage";
-        private const string CatalogLocalDirectory = @"c:\data\site\catalogmetricsstorage";
+        private const string CatalogPath = "catalogmetricsstorage-consolemetrics";
+        private const string CatalogLocalDirectory = @"c:\data\site\catalogmetricsstorage-consolemetrics";
         private const string CatalogIndexUrl = "http://localhost:8000/CatalogMetricsStorage";
         private const int CatalogItemPackageStatsCount = 2;
         private const bool ShouldUseDB = true;

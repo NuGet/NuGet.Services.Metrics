@@ -20,6 +20,7 @@ namespace NuGet.Services.Metrics.Core
     {
         private const string IdParam = "@id";
         private const string NormalizedVersionParam = "@normalizedVersion";
+        private static int CatalogWriterGate = 0; // When the CatalogWriterGate is 0, the catalog is open for writing. If 1, it is closed for writing
         private static ConcurrentQueue<JToken> CurrentStatsQueue = new ConcurrentQueue<JToken>();
         private static ConcurrentQueue<ConcurrentQueue<JToken>> StatsQueueOfQueues = new ConcurrentQueue<ConcurrentQueue<JToken>>();
         private Storage CatalogStorage { get; set; }
@@ -42,7 +43,7 @@ namespace NuGet.Services.Metrics.Core
         private readonly int _commandTimeout;
 
         public CatalogMetricsStorage(IDictionary<string, string> appSettingDictionary)
-            {
+        {
             string connectionString = MetricsAppSettings.GetSetting(appSettingDictionary, MetricsAppSettings.SqlConfigurationKey);
             int commandTimeout = MetricsAppSettings.TryGetIntSetting(appSettingDictionary, MetricsAppSettings.CommandTimeoutKey) ?? 0;
 
@@ -87,7 +88,7 @@ namespace NuGet.Services.Metrics.Core
 
                 if(reader.Read())
                 {
-                    await EnqueueStats(GetJToken(jObject, reader));
+                    EnqueueStats(GetJToken(jObject, reader));
                 }
                 else
                 {
@@ -146,59 +147,61 @@ namespace NuGet.Services.Metrics.Core
             return row;
         }
 
-        private async Task EnqueueStats(JToken row)
+        private void EnqueueStats(JToken row)
         {
             Trace.WriteLine("AddToCatalog ThreadId:" + Environment.CurrentManagedThreadId);
             CurrentStatsQueue.Enqueue(row);
             if(CurrentStatsQueue.Count >= CatalogItemPackageStatsCount)
             {
+                // It is possible that 2 or more threads have entered this point. In that case, 1 or more empty CurrentStatsQueue(s) will get enqueued to StatsQueueOfQueues
+                // This is harmless, since during commit in CommitToCatalog, empty catalog items can be ignored easily
                 StatsQueueOfQueues.Enqueue(Interlocked.Exchange(ref CurrentStatsQueue, new ConcurrentQueue<JToken>()));
+                Task.Run(() => CommitToCatalog());
             }
         }
 
-        private void CatalogCommitRunner()
+        private void CommitToCatalog()
         {
-            Trace.WriteLine("CatalogCommitRunner ThreadId:" + Environment.CurrentManagedThreadId);
-            using (CatalogWriter writer = new CatalogWriter(CatalogStorage, new CatalogContext(), CatalogPageSize))
+            // When the CatalogWriterGate is 0, the catalog is open for writing. If 1, it is closed for writing
+            // Using Interlocked.Exchange, set value to 1 and close the gate, and check if the value returned is 0 to see if the gate was open
+            // If the value returned is 1, that is, if the gate was already closed, do nothing
+            // When 2 or more threads reach this point, while the gate is open, only 1 thread will enter. Rest will find that the gate is already closed and leave
+            if (Interlocked.Equals(Interlocked.Exchange(ref CatalogWriterGate, 1), 0))
             {
-                while(CurrentStatsQueue != null)
+                using (CatalogWriter writer = new CatalogWriter(CatalogStorage, new CatalogContext(), CatalogPageSize))
                 {
-                    Thread.Sleep(1000);
-                    CommitToCatalog(writer);
-                }
-            }
-        }
-
-        private void CommitToCatalog(CatalogWriter writer)
-        {
-            try
-            {
-                ConcurrentQueue<JToken> headStatsQueue;
-                while (StatsQueueOfQueues.TryDequeue(out headStatsQueue))
-                {
-                    JArray statsCatalogItem = new JArray();
-                    foreach (JToken packageStats in headStatsQueue)
+                    ConcurrentQueue<JToken> headStatsQueue;
+                    while (StatsQueueOfQueues.TryDequeue(out headStatsQueue))
                     {
-                        statsCatalogItem.Add(packageStats);
+                        if (headStatsQueue.Count == 0)
+                        {
+                            // An emtpy StatsQueue, ignore this one and go to the next one
+                            continue;
+                        }
+
+                        JArray statsCatalogItem = new JArray();
+                        foreach (JToken packageStats in headStatsQueue)
+                        {
+                            statsCatalogItem.Add(packageStats);
+                        }
+
+                        // Note that at this point, DateTime is already in UTC
+                        string minDownloadTimestampString = statsCatalogItem[0][0].ToString();
+                        DateTime minDownloadTimestamp = DateTime.Parse(minDownloadTimestampString, null, System.Globalization.DateTimeStyles.RoundtripKind);
+
+                        string maxDownloadTimestampString = statsCatalogItem[statsCatalogItem.Count - 1][0].ToString();
+                        DateTime maxDownloadTimestamp = DateTime.Parse(minDownloadTimestampString, null, System.Globalization.DateTimeStyles.RoundtripKind);
+                        writer.Add(new StatisticsCatalogItem(statsCatalogItem,
+                            minDownloadTimestamp,
+                            maxDownloadTimestamp));
+                        writer.Commit().Wait();
                     }
-                    // Note that at this point, DateTime is already in UTC
-                    string minDownloadTimestampString = statsCatalogItem[0][0].ToString();
-                    DateTime minDownloadTimestamp = DateTime.Parse(minDownloadTimestampString, null, System.Globalization.DateTimeStyles.RoundtripKind);
-
-                    string maxDownloadTimestampString = statsCatalogItem[statsCatalogItem.Count - 1][0].ToString();
-                    DateTime maxDownloadTimestamp = DateTime.Parse(minDownloadTimestampString, null, System.Globalization.DateTimeStyles.RoundtripKind);
-                    writer.Add(new StatisticsCatalogItem(statsCatalogItem,
-                        "PackageStats",
-                        minDownloadTimestamp,
-                        maxDownloadTimestamp));
-                    writer.Commit().Wait();
-                    Thread.Sleep(1000);
                 }
-
+                Interlocked.Exchange(ref CatalogWriterGate, 0);
             }
-            catch (Exception ex)
+            else
             {
-                Trace.TraceError(ex.ToString());
+                Trace.WriteLine("Another thread is committing to catalog. Skipping");
             }
         }
     }
