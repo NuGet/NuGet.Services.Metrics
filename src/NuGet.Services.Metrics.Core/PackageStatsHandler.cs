@@ -19,12 +19,23 @@ namespace NuGet.Services.Metrics.Core
         public const string CommandTimeoutKey = "Metrics.CommandTimeout";
         public const string CatalogStorageAccountKey = "Metrics.CatalogStorageAccount";
         public const string CatalogPathKey = "Metrics.CatalogPath";
+        public const string CatalogLocalDirectoryKey = "Metrics.CatalogLocalDirectory";
         public const string CatalogIndexUrlKey = "Metrics.CatalogIndexUrl";
-        public const string IsLocalCatalogKey = "Metrics.IsLocalCatalog";
         public const string CatalogPageSizeKey = "Metrics.CatalogPageSize";
         // TODO : public const string CatalogCommitSizeKey = "Metrics.CatalogCommitSize";
         public const string CatalogItemPackageStatsCountKey = "Metrics.CatalogItemPackageStatsCount";
-        public const string ShouldUseDBAndCatalog = "Metrics.ShouldUseDBAndCatalog";
+        public const string ShouldUseCatalog = "Metrics.ShouldUseCatalog";
+        public const string ShouldUseDB = "Metrics.ShouldUseDB";
+
+        public static string GetSetting(IDictionary<string, string> appSettingDictionary, string key)
+        {
+            if(appSettingDictionary.ContainsKey(key))
+            {
+                return appSettingDictionary[key];
+            }
+
+            throw new ArgumentException(key + " is not present in the app configuration setting");
+        }
 
         /// <summary>
         /// Returns the value from the dictionary if found. Otherwise, null
@@ -76,34 +87,24 @@ namespace NuGet.Services.Metrics.Core
 
         public PackageStatsHandler(IDictionary<string, string> appSettingDictionary)
         {
-            string connectionString = MetricsAppSettings.TryGetSetting(appSettingDictionary, MetricsAppSettings.SqlConfigurationKey);
-            if (String.IsNullOrEmpty(connectionString))
-            {
-                throw new ArgumentException("Metrics.SqlServer is not present in the configuration");
-            }
-
-            int commandTimeout = MetricsAppSettings.TryGetIntSetting(appSettingDictionary, MetricsAppSettings.CommandTimeoutKey) ?? 0;
-            string catalogIndexUrl = MetricsAppSettings.TryGetSetting(appSettingDictionary, MetricsAppSettings.CatalogIndexUrlKey);
-            string catalogStorageAccount = MetricsAppSettings.TryGetSetting(appSettingDictionary, MetricsAppSettings.CatalogStorageAccountKey);
-
             _metricsStorageList = new List<MetricsStorage>();
-            if(String.IsNullOrEmpty(catalogIndexUrl) && String.IsNullOrEmpty(catalogStorageAccount))
-            {
-                // CatalogIndexUrl is not provided. Only database should be used for storing package statistics
-                _metricsStorageList.Add(new DatabaseMetricsStorage(connectionString, commandTimeout));
-            }
-            else
-            {
-                // CatalogIndexUrl is provided. Clearly, Catalog should be used. Check if DB should be used as well
-                bool shouldUseDBAndCatalog = MetricsAppSettings.TryGetBooleanSetting(appSettingDictionary, MetricsAppSettings.ShouldUseDBAndCatalog);
-                if(shouldUseDBAndCatalog)
-                {
-                    // DB should be used too. Add it to the list of Metrics Storage
-                    _metricsStorageList.Add(new DatabaseMetricsStorage(connectionString, commandTimeout));
-                }
 
-                // Since CatalogIndexUrl is provided, Catalog should be used to store Metrics
-                _metricsStorageList.Add(new CatalogMetricsStorage(connectionString, commandTimeout, appSettingDictionary));
+            bool shouldUseDB = MetricsAppSettings.TryGetBooleanSetting(appSettingDictionary, MetricsAppSettings.ShouldUseDB);
+            bool shouldUseCatalog = MetricsAppSettings.TryGetBooleanSetting(appSettingDictionary, MetricsAppSettings.ShouldUseCatalog);
+
+            if(shouldUseDB)
+            {
+                _metricsStorageList.Add(new DatabaseMetricsStorage(appSettingDictionary));
+            }
+
+            if(shouldUseCatalog)
+            {
+                _metricsStorageList.Add(new CatalogMetricsStorage(appSettingDictionary));
+            }
+
+            if(_metricsStorageList.Count == 0)
+            {
+                throw new ArgumentException("Neither ShouldUseDB nor ShouldUseCatalog is set to true. Invalid app setting");
             }
         }
 

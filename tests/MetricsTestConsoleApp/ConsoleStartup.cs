@@ -16,29 +16,25 @@ namespace MetricsTestConsoleApp
         private const int CommandTimeout = 5;
         private const string CatalogStorageAccount = @"UseDevelopmentStorage=true;DevelopmentStorageProxyUri=http://localhost:8000";
         private const string CatalogPath = "catalogmetricsstorage";
+        private const string CatalogLocalDirectory = @"c:\data\site\catalogmetricsstorage";
         private const string CatalogIndexUrl = "http://localhost:8000/CatalogMetricsStorage";
-        private const bool IsLocalCatalog = true;
         private const int CatalogItemPackageStatsCount = 2;
-        private const bool ShouldUseDBAndCatalog = true;
+        private const bool ShouldUseDB = true;
+        private const bool ShouldUseCatalog = true;
 
         public void Configuration(IAppBuilder appBuilder)
         {
             IDictionary<string, string> appSettingDictionary = new Dictionary<string, string>();
+
+            appSettingDictionary.Add(MetricsAppSettings.ShouldUseDB, ShouldUseDB.ToString());
+            appSettingDictionary.Add(MetricsAppSettings.ShouldUseCatalog, ShouldUseCatalog.ToString());
             appSettingDictionary.Add(MetricsAppSettings.SqlConfigurationKey, ConnectionString);
             appSettingDictionary.Add(MetricsAppSettings.CommandTimeoutKey, CommandTimeout.ToString());
-            appSettingDictionary.Add(MetricsAppSettings.IsLocalCatalogKey, IsLocalCatalog.ToString());
-
-            if (IsLocalCatalog)
-            {
-                appSettingDictionary.Add(MetricsAppSettings.CatalogIndexUrlKey, CatalogIndexUrl);
-            }
-            else
-            {
-                appSettingDictionary.Add(MetricsAppSettings.CatalogStorageAccountKey, CatalogStorageAccount.ToString());
-                appSettingDictionary.Add(MetricsAppSettings.CatalogPathKey, CatalogPath);
-            }
+            appSettingDictionary.Add(MetricsAppSettings.CatalogLocalDirectoryKey, CatalogLocalDirectory);
+            appSettingDictionary.Add(MetricsAppSettings.CatalogIndexUrlKey, CatalogIndexUrl);
+            appSettingDictionary.Add(MetricsAppSettings.CatalogStorageAccountKey, CatalogStorageAccount);
+            appSettingDictionary.Add(MetricsAppSettings.CatalogPathKey, CatalogPath);
             appSettingDictionary.Add(MetricsAppSettings.CatalogItemPackageStatsCountKey, CatalogItemPackageStatsCount.ToString());
-            appSettingDictionary.Add(MetricsAppSettings.ShouldUseDBAndCatalog, ShouldUseDBAndCatalog.ToString());
 
             _packageStatsHandler = new PackageStatsHandler(appSettingDictionary);
             appBuilder.Run(Invoke);

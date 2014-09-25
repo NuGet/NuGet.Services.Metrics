@@ -2,6 +2,7 @@
 using System.Data.SqlClient;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
+using System.Collections.Generic;
 
 namespace NuGet.Services.Metrics.Core
 {
@@ -27,8 +28,11 @@ AND			NormalizedVersion = @normalizedVersion), 'unknown', @userAgent, @operation
         private readonly SqlConnectionStringBuilder _cstr;
         private readonly int _commandTimeout;
 
-        public DatabaseMetricsStorage(string connectionString, int commandTimeout)
+        public DatabaseMetricsStorage(IDictionary<string, string> appSettingDictionary)
         {
+            string connectionString = MetricsAppSettings.GetSetting(appSettingDictionary, MetricsAppSettings.SqlConfigurationKey);
+            int commandTimeout = MetricsAppSettings.TryGetIntSetting(appSettingDictionary, MetricsAppSettings.CommandTimeoutKey) ?? 0;
+
             _cstr = new SqlConnectionStringBuilder(connectionString);
             _commandTimeout = commandTimeout > 0 ? commandTimeout : 5;
         }
