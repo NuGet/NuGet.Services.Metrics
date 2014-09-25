@@ -41,55 +41,32 @@ namespace NuGet.Services.Metrics.Core
         private readonly SqlConnectionStringBuilder _cstr;
         private readonly int _commandTimeout;
 
-        private static CloudBlobDirectory GetBlobDirectory(CloudStorageAccount account, string path)
-        {
-            var client = account.CreateCloudBlobClient();
-            string[] segments = path.Split('/');
-            string containerName;
-            string prefix;
-
-            if (segments.Length < 2)
+        public CatalogMetricsStorage(IDictionary<string, string> appSettingDictionary)
             {
-                // No "/" segments, so the path is a container and the catalog is at the root...
-                containerName = path;
-                prefix = String.Empty;
-            }
-            else
-            {
-                // Found "/" segments, but we need to get the first segment to use as the container...
-                containerName = segments[0];
-                prefix = String.Join("/", segments.Skip(1)) + "/";
-            }
+            string connectionString = MetricsAppSettings.GetSetting(appSettingDictionary, MetricsAppSettings.SqlConfigurationKey);
+            int commandTimeout = MetricsAppSettings.TryGetIntSetting(appSettingDictionary, MetricsAppSettings.CommandTimeoutKey) ?? 0;
 
-            var container = client.GetContainerReference(containerName);
-            container.CreateIfNotExists();
-            var dir = container.GetDirectoryReference(prefix);
-            return dir;
-        }
-        public CatalogMetricsStorage(string connectionString, int commandTimeout, IDictionary<string, string> appSettingDictionary)
-        {
             _cstr = new SqlConnectionStringBuilder(connectionString);
             _commandTimeout = commandTimeout > 0 ? commandTimeout : 5;
 
-            CatalogPageSize = MetricsAppSettings.TryGetIntSetting(appSettingDictionary, MetricsAppSettings.CatalogPageSizeKey) ?? 500;
-            CatalogItemPackageStatsCount = MetricsAppSettings.TryGetIntSetting(appSettingDictionary, MetricsAppSettings.CatalogItemPackageStatsCountKey) ?? 1000;
-
-            bool isLocalCatalog = MetricsAppSettings.TryGetBooleanSetting(appSettingDictionary, MetricsAppSettings.IsLocalCatalogKey);
-            if(isLocalCatalog)
+            string catalogLocalDirectory = MetricsAppSettings.TryGetSetting(appSettingDictionary, MetricsAppSettings.CatalogLocalDirectoryKey);
+            if(!String.IsNullOrEmpty(catalogLocalDirectory))
             {
-                string catalogIndexUrl = MetricsAppSettings.TryGetSetting(appSettingDictionary, MetricsAppSettings.CatalogIndexUrlKey);
-                CatalogStorage = new FileStorage(catalogIndexUrl, @"c:\data\site\CatalogMetricsStorage");
+                string catalogIndexUrl = MetricsAppSettings.GetSetting(appSettingDictionary, MetricsAppSettings.CatalogIndexUrlKey);
+                CatalogStorage = new FileStorage(catalogIndexUrl, catalogLocalDirectory);
             }
             else
             {
-                string catalogStorageAccountKey = MetricsAppSettings.TryGetSetting(appSettingDictionary, MetricsAppSettings.CatalogStorageAccountKey);
+                string catalogStorageAccountKey = MetricsAppSettings.GetSetting(appSettingDictionary, MetricsAppSettings.CatalogStorageAccountKey);
+                string catalogPath = MetricsAppSettings.GetSetting(appSettingDictionary, MetricsAppSettings.CatalogPathKey);
+
                 var catalogStorageAccount = CloudStorageAccount.Parse(catalogStorageAccountKey);
-                string catalogPath = MetricsAppSettings.TryGetSetting(appSettingDictionary, MetricsAppSettings.CatalogPathKey);
                 var catalogDirectory = GetBlobDirectory(catalogStorageAccount, catalogPath);
                 CatalogStorage = new AzureStorage(catalogDirectory);
             }
 
-            Task.Run(() => CatalogCommitRunner());
+            CatalogPageSize = MetricsAppSettings.TryGetIntSetting(appSettingDictionary, MetricsAppSettings.CatalogPageSizeKey) ?? 500;
+            CatalogItemPackageStatsCount = MetricsAppSettings.TryGetIntSetting(appSettingDictionary, MetricsAppSettings.CatalogItemPackageStatsCountKey) ?? 1000;
         }
         public override async Task AddPackageDownloadStatistics(JObject jObject)
         {
@@ -117,6 +94,32 @@ namespace NuGet.Services.Metrics.Core
                     Trace.TraceWarning("Package of id '{0}' and version '{1}' does not exist. Skipping...", id, version);
                 }
             }
+        }
+
+        private static CloudBlobDirectory GetBlobDirectory(CloudStorageAccount account, string path)
+        {
+            var client = account.CreateCloudBlobClient();
+            string[] segments = path.Split('/');
+            string containerName;
+            string prefix;
+
+            if (segments.Length < 2)
+            {
+                // No "/" segments, so the path is a container and the catalog is at the root...
+                containerName = path;
+                prefix = String.Empty;
+            }
+            else
+            {
+                // Found "/" segments, but we need to get the first segment to use as the container...
+                containerName = segments[0];
+                prefix = String.Join("/", segments.Skip(1)) + "/";
+            }
+
+            var container = client.GetContainerReference(containerName);
+            container.CreateIfNotExists();
+            var dir = container.GetDirectoryReference(prefix);
+            return dir;
         }
 
         private JToken GetJToken(JObject jObject, SqlDataReader reader)
