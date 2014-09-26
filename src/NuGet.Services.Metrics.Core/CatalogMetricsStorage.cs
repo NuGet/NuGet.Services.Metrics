@@ -27,12 +27,12 @@ namespace NuGet.Services.Metrics.Core
         private int CatalogPageSize { get; set; }
         private int CatalogItemPackageStatsCount { get; set; }
 
-        private const string PackageExistenceCheckQuery = @"
+        private static readonly string PackageExistenceCheckQuery = @"
                 SELECT		p.[Key],
-                            p.Listed,
-                            ISNULL(p.Title, ''),
-                            ISNULL(p.Description, ''),
-                            ISNULL(p.IconUrl, '')
+                            p.Listed as " + CatalogPackageListed + @",
+                            ISNULL(p.Title, '') as " + CatalogPackageTitle + @",
+                            ISNULL(p.Description, '') as " + CatalogPackageDescription + @",
+                            ISNULL(p.IconUrl, '')" + CatalogPackageIconUrl + @"
                 FROM		Packages p
                 INNER JOIN	PackageRegistrations pr
                 ON          p.[PackageRegistrationKey] = pr.[Key]
@@ -88,7 +88,7 @@ namespace NuGet.Services.Metrics.Core
 
                 if(reader.Read())
                 {
-                    EnqueueStats(GetJToken(jObject, reader));
+                    EnqueueStats(GetStatsCatalogItemRow(jObject, reader));
                 }
                 else
                 {
@@ -123,34 +123,28 @@ namespace NuGet.Services.Metrics.Core
             return dir;
         }
 
-        private JToken GetJToken(JObject jObject, SqlDataReader reader)
+        private JToken GetStatsCatalogItemRow(JObject jObject, SqlDataReader reader)
         {
-            var userAgent = JTokenToString(jObject[UserAgentKey]);
-            var operation = JTokenToString(jObject[OperationKey]);
-            var dependentPackage = JTokenToString(jObject[DependentPackageKey]);
-            var projectGuids = JTokenToString(jObject[ProjectGuidsKey]);
+            JObject statsCatalogItemRow = new JObject();
+            statsCatalogItemRow[CatalogDownloadTimestamp] = DateTime.UtcNow.ToString("O");
+            statsCatalogItemRow[CatalogPackageId] = jObject[IdKey]; // At this point, package Id is present and not empty
+            statsCatalogItemRow[CatalogPackageVersion] = jObject[VersionKey]; // At this point, package Version is present and not empty
+            statsCatalogItemRow[CatalogDownloadUserAgent] = JTokenToString(jObject[UserAgentKey]);
+            statsCatalogItemRow[CatalogDownloadOperation] = JTokenToString(jObject[OperationKey]);
+            statsCatalogItemRow[CatalogDownloadDependentPackageId] = JTokenToString(jObject[DependentPackageKey]);
+            statsCatalogItemRow[CatalogDownloadProjectTypes] = JTokenToString(jObject[ProjectGuidsKey]);
+            statsCatalogItemRow[CatalogPackageTitle] = reader.GetString(reader.GetOrdinal(CatalogPackageTitle));
+            statsCatalogItemRow[CatalogPackageDescription] = reader.GetString(reader.GetOrdinal(CatalogPackageDescription));
+            statsCatalogItemRow[CatalogPackageIconUrl] = reader.GetString(reader.GetOrdinal(CatalogPackageIconUrl));
+            statsCatalogItemRow[CatalogPackageListed] = reader.GetBoolean(reader.GetOrdinal(CatalogPackageListed));
 
-            JArray row = new JArray();
-            row.Add(DateTime.UtcNow.ToString("O"));
-            row.Add(reader.GetInt32(0));
-            row.Add(jObject[IdKey].ToString());
-            row.Add(jObject[IdKey].ToString());
-            row.Add(userAgent);
-            row.Add(operation);
-            row.Add(dependentPackage);
-            row.Add(projectGuids);
-            row.Add(reader.GetBoolean(1));
-            row.Add(reader.GetString(2));
-            row.Add(reader.GetString(3));
-            row.Add(reader.GetString(4));
-
-            return row;
+            return statsCatalogItemRow;
         }
 
-        private void EnqueueStats(JToken row)
+        private void EnqueueStats(JToken packageStatsCatalogItemRow)
         {
             Trace.WriteLine("AddToCatalog ThreadId:" + Environment.CurrentManagedThreadId);
-            CurrentStatsQueue.Enqueue(row);
+            CurrentStatsQueue.Enqueue(packageStatsCatalogItemRow);
             if(CurrentStatsQueue.Count >= CatalogItemPackageStatsCount)
             {
                 // It is possible that 2 or more threads have entered this point. In that case, 1 or more empty CurrentStatsQueue(s) will get enqueued to StatsQueueOfQueues
@@ -168,34 +162,41 @@ namespace NuGet.Services.Metrics.Core
             // When 2 or more threads reach this point, while the gate is open, only 1 thread will enter. Rest will find that the gate is already closed and leave
             if (Interlocked.Equals(Interlocked.Exchange(ref CatalogWriterGate, 1), 0))
             {
-                using (CatalogWriter writer = new CatalogWriter(CatalogStorage, new CatalogContext(), CatalogPageSize))
+                try
                 {
-                    ConcurrentQueue<JToken> headStatsQueue;
-                    while (StatsQueueOfQueues.TryDequeue(out headStatsQueue))
+                    using (CatalogWriter writer = new CatalogWriter(CatalogStorage, new CatalogContext(), CatalogPageSize))
                     {
-                        if (headStatsQueue.Count == 0)
+                        ConcurrentQueue<JToken> headStatsQueue;
+                        while (StatsQueueOfQueues.TryDequeue(out headStatsQueue))
                         {
-                            // An emtpy StatsQueue, ignore this one and go to the next one
-                            continue;
+                            if (headStatsQueue.Count == 0)
+                            {
+                                // An emtpy StatsQueue, ignore this one and go to the next one
+                                continue;
+                            }
+
+                            JArray statsCatalogItem = new JArray();
+                            foreach (JToken packageStats in headStatsQueue)
+                            {
+                                statsCatalogItem.Add(packageStats);
+                            }
+
+                            // Note that at this point, DateTime is already in UTC
+                            string minDownloadTimestampString = statsCatalogItem[0][CatalogDownloadTimestamp].ToString();
+                            DateTime minDownloadTimestamp = DateTime.Parse(minDownloadTimestampString, null, System.Globalization.DateTimeStyles.RoundtripKind);
+
+                            string maxDownloadTimestampString = statsCatalogItem[statsCatalogItem.Count - 1][CatalogDownloadTimestamp].ToString();
+                            DateTime maxDownloadTimestamp = DateTime.Parse(minDownloadTimestampString, null, System.Globalization.DateTimeStyles.RoundtripKind);
+                            writer.Add(new StatisticsCatalogItem(statsCatalogItem,
+                                minDownloadTimestamp,
+                                maxDownloadTimestamp));
+                            writer.Commit().Wait();
                         }
-
-                        JArray statsCatalogItem = new JArray();
-                        foreach (JToken packageStats in headStatsQueue)
-                        {
-                            statsCatalogItem.Add(packageStats);
-                        }
-
-                        // Note that at this point, DateTime is already in UTC
-                        string minDownloadTimestampString = statsCatalogItem[0][0].ToString();
-                        DateTime minDownloadTimestamp = DateTime.Parse(minDownloadTimestampString, null, System.Globalization.DateTimeStyles.RoundtripKind);
-
-                        string maxDownloadTimestampString = statsCatalogItem[statsCatalogItem.Count - 1][0].ToString();
-                        DateTime maxDownloadTimestamp = DateTime.Parse(minDownloadTimestampString, null, System.Globalization.DateTimeStyles.RoundtripKind);
-                        writer.Add(new StatisticsCatalogItem(statsCatalogItem,
-                            minDownloadTimestamp,
-                            maxDownloadTimestamp));
-                        writer.Commit().Wait();
                     }
+                }
+                catch (Exception ex)
+                {
+                    Trace.TraceError(ex.ToString());
                 }
                 Interlocked.Exchange(ref CatalogWriterGate, 0);
             }
