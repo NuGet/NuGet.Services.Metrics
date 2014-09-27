@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Data.SqlClient;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -38,6 +39,8 @@ namespace NuGet.Services.Metrics.Core
                 ON          p.[PackageRegistrationKey] = pr.[Key]
                 WHERE		Id = @id
                 AND			NormalizedVersion = @normalizedVersion";
+        private const string WEBSITE_INSTANCE_ID = "WEBSITE_INSTANCE_ID";
+        private const string IndexesDirectoryName = "indexes";
 
         private readonly SqlConnectionStringBuilder _cstr;
         private readonly int _commandTimeout;
@@ -50,11 +53,18 @@ namespace NuGet.Services.Metrics.Core
             _cstr = new SqlConnectionStringBuilder(connectionString);
             _commandTimeout = commandTimeout > 0 ? commandTimeout : 5;
 
+            string websiteInstanceId = Environment.GetEnvironmentVariable(WEBSITE_INSTANCE_ID) ?? String.Empty;
             string catalogLocalDirectory = MetricsAppSettings.TryGetSetting(appSettingDictionary, MetricsAppSettings.CatalogLocalDirectoryKey);
             if(!String.IsNullOrEmpty(catalogLocalDirectory))
             {
                 string catalogIndexUrl = MetricsAppSettings.GetSetting(appSettingDictionary, MetricsAppSettings.CatalogIndexUrlKey);
-                CatalogStorage = new FileStorage(catalogIndexUrl, catalogLocalDirectory);
+                CatalogStorage = new FileStorage(catalogIndexUrl, Path.Combine(catalogLocalDirectory, websiteInstanceId));
+                string indexesDirectory = Path.Combine(catalogLocalDirectory, IndexesDirectoryName);
+                Directory.CreateDirectory(indexesDirectory); // This statement creates or overwrites
+                using (var stream = File.Create(Path.Combine(indexesDirectory, websiteInstanceId + ".txt"))) // This statement creates or overwrites
+                {
+                    // DO NOTHING
+                }
             }
             else
             {
@@ -62,13 +72,35 @@ namespace NuGet.Services.Metrics.Core
                 string catalogPath = MetricsAppSettings.GetSetting(appSettingDictionary, MetricsAppSettings.CatalogPathKey);
 
                 var catalogStorageAccount = CloudStorageAccount.Parse(catalogStorageAccountKey);
-                var catalogDirectory = GetBlobDirectory(catalogStorageAccount, catalogPath);
-                CatalogStorage = new AzureStorage(catalogDirectory);
+
+                string containerName;
+                string prefix;
+                GetContainerNameAndPrefix(catalogPath, out containerName, out prefix);
+
+                CreateIndexesFileInAzure(catalogStorageAccount, containerName, prefix, websiteInstanceId);
+                CatalogStorage = new AzureStorage(catalogStorageAccount, containerName, Path.Combine(prefix, websiteInstanceId));
             }
 
             CatalogPageSize = MetricsAppSettings.TryGetIntSetting(appSettingDictionary, MetricsAppSettings.CatalogPageSizeKey) ?? 500;
             CatalogItemPackageStatsCount = MetricsAppSettings.TryGetIntSetting(appSettingDictionary, MetricsAppSettings.CatalogItemPackageStatsCountKey) ?? 1000;
         }
+
+        private void GetContainerNameAndPrefix(string catalogPath, out string containerName, out string prefix)
+        {
+            string[] segments = catalogPath.Split('/');
+            containerName = segments.Length < 2 ? catalogPath : segments[0];
+            prefix = segments.Length < 2 ? String.Empty : Path.Combine(segments.Skip(1).ToArray());
+        }
+
+        private void CreateIndexesFileInAzure(CloudStorageAccount catalogStorageAccount, string containerName, string prefix, string websiteInstanceId)
+        {
+            CloudBlobContainer container = catalogStorageAccount.CreateCloudBlobClient().GetContainerReference(containerName);
+            container.CreateIfNotExists();
+            var indexesFileBlob = container.GetBlockBlobReference(Path.Combine(prefix, IndexesDirectoryName, websiteInstanceId + ".txt"));
+            Trace.TraceInformation("Created indexes file blob. blobUri" + indexesFileBlob.Uri.ToString());
+            indexesFileBlob.UploadText(String.Empty);
+        }
+
         public override async Task AddPackageDownloadStatistics(JObject jObject)
         {
             var id = jObject[IdKey].ToString();
@@ -95,32 +127,6 @@ namespace NuGet.Services.Metrics.Core
                     Trace.TraceWarning("Package of id '{0}' and version '{1}' does not exist. Skipping...", id, version);
                 }
             }
-        }
-
-        private static CloudBlobDirectory GetBlobDirectory(CloudStorageAccount account, string path)
-        {
-            var client = account.CreateCloudBlobClient();
-            string[] segments = path.Split('/');
-            string containerName;
-            string prefix;
-
-            if (segments.Length < 2)
-            {
-                // No "/" segments, so the path is a container and the catalog is at the root...
-                containerName = path;
-                prefix = String.Empty;
-            }
-            else
-            {
-                // Found "/" segments, but we need to get the first segment to use as the container...
-                containerName = segments[0];
-                prefix = String.Join("/", segments.Skip(1)) + "/";
-            }
-
-            var container = client.GetContainerReference(containerName);
-            container.CreateIfNotExists();
-            var dir = container.GetDirectoryReference(prefix);
-            return dir;
         }
 
         private JToken GetStatsCatalogItemRow(JObject jObject, SqlDataReader reader)
