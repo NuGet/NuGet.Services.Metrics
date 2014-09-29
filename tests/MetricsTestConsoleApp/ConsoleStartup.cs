@@ -24,6 +24,12 @@ namespace MetricsTestConsoleApp
 
         public void Configuration(IAppBuilder appBuilder)
         {
+            string websiteInstanceId = Environment.GetEnvironmentVariable(CatalogMetricsStorage.WEBSITE_INSTANCE_ID);
+            if(String.IsNullOrEmpty(websiteInstanceId))
+            {
+                Environment.SetEnvironmentVariable(CatalogMetricsStorage.WEBSITE_INSTANCE_ID, "A1B2C3D4");
+            }
+
             IDictionary<string, string> appSettingDictionary = new Dictionary<string, string>();
 
             appSettingDictionary.Add(MetricsAppSettings.ShouldUseDB, ShouldUseDB.ToString());
@@ -31,7 +37,7 @@ namespace MetricsTestConsoleApp
             appSettingDictionary.Add(MetricsAppSettings.SqlConfigurationKey, ConnectionString);
             appSettingDictionary.Add(MetricsAppSettings.CommandTimeoutKey, CommandTimeout.ToString());
             appSettingDictionary.Add(MetricsAppSettings.CatalogLocalDirectoryKey, CatalogLocalDirectory);
-            appSettingDictionary.Add(MetricsAppSettings.CatalogIndexUrlKey, CatalogIndexUrl);
+            appSettingDictionary.Add(MetricsAppSettings.CatalogBaseAddressKey, CatalogIndexUrl);
             appSettingDictionary.Add(MetricsAppSettings.CatalogStorageAccountKey, CatalogStorageAccount);
             appSettingDictionary.Add(MetricsAppSettings.CatalogPathKey, CatalogPath);
             appSettingDictionary.Add(MetricsAppSettings.CatalogItemPackageStatsCountKey, CatalogItemPackageStatsCount.ToString());

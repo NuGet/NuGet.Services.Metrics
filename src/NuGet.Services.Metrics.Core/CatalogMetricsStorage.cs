@@ -39,8 +39,10 @@ namespace NuGet.Services.Metrics.Core
                 ON          p.[PackageRegistrationKey] = pr.[Key]
                 WHERE		Id = @id
                 AND			NormalizedVersion = @normalizedVersion";
-        private const string WEBSITE_INSTANCE_ID = "WEBSITE_INSTANCE_ID";
+        public const string WEBSITE_INSTANCE_ID = "WEBSITE_INSTANCE_ID";
         private const string IndexesDirectoryName = "indexes";
+        private const string CatalogIndexPathKey = "catalogIndexPath";
+        private const string CatalogLastUpdatedKey = "catalogLastUpdated";
 
         private readonly SqlConnectionStringBuilder _cstr;
         private readonly int _commandTimeout;
@@ -53,18 +55,23 @@ namespace NuGet.Services.Metrics.Core
             _cstr = new SqlConnectionStringBuilder(connectionString);
             _commandTimeout = commandTimeout > 0 ? commandTimeout : 5;
 
-            string websiteInstanceId = Environment.GetEnvironmentVariable(WEBSITE_INSTANCE_ID) ?? String.Empty;
+            string websiteInstanceId = Environment.GetEnvironmentVariable(WEBSITE_INSTANCE_ID);
+            if(String.IsNullOrEmpty(websiteInstanceId))
+            {
+                throw new ArgumentException("Environment variable WEBSITE_INSTANCE_ID is not defined");
+            }
+
+            Storage rootStorageOfAllCatalogs = null;
+
             string catalogLocalDirectory = MetricsAppSettings.TryGetSetting(appSettingDictionary, MetricsAppSettings.CatalogLocalDirectoryKey);
             if(!String.IsNullOrEmpty(catalogLocalDirectory))
             {
-                string catalogIndexUrl = MetricsAppSettings.GetSetting(appSettingDictionary, MetricsAppSettings.CatalogIndexUrlKey);
-                CatalogStorage = new FileStorage(catalogIndexUrl, Path.Combine(catalogLocalDirectory, websiteInstanceId));
-                string indexesDirectory = Path.Combine(catalogLocalDirectory, IndexesDirectoryName);
-                Directory.CreateDirectory(indexesDirectory); // This statement creates or overwrites
-                using (var stream = File.Create(Path.Combine(indexesDirectory, websiteInstanceId + ".txt"))) // This statement creates or overwrites
-                {
-                    // DO NOTHING
-                }
+                string catalogBaseAddress = MetricsAppSettings.GetSetting(appSettingDictionary, MetricsAppSettings.CatalogBaseAddressKey);
+
+                // NOTE that rootStorageOfAllCatalogs is at 'catalogLocalDirectory' and has a base address of 'catalogBaseAddress'
+                // However, CatalogStorage, which is specific to this website instance, is at 'catalogDirectory/websiteInstanceId' and has a base address of 'catalogBaseAddress/websiteInstanceId'
+                rootStorageOfAllCatalogs = new FileStorage(catalogBaseAddress, catalogLocalDirectory);
+                CatalogStorage = new FileStorage(Path.Combine(catalogBaseAddress, websiteInstanceId), Path.Combine(catalogLocalDirectory, websiteInstanceId));
             }
             else
             {
@@ -77,10 +84,13 @@ namespace NuGet.Services.Metrics.Core
                 string prefix;
                 GetContainerNameAndPrefix(catalogPath, out containerName, out prefix);
 
-                CreateIndexesFileInAzure(catalogStorageAccount, containerName, prefix, websiteInstanceId);
+                // NOTE that rootStorageOfAllCatalogs is at 'catalogStorageAccount/containerName/prefix' and a base address derived from that blob directory
+                // However, CatalogStorage, which is specific to this website instance, is at 'catalogStorageAccount/containerName/prefix/websiteInstanceId' and a base address derived from that blob directory
+                rootStorageOfAllCatalogs = new AzureStorage(catalogStorageAccount, containerName, prefix);
                 CatalogStorage = new AzureStorage(catalogStorageAccount, containerName, Path.Combine(prefix, websiteInstanceId));
             }
 
+            CreateIndexesFile(rootStorageOfAllCatalogs, websiteInstanceId);
             CatalogPageSize = MetricsAppSettings.TryGetIntSetting(appSettingDictionary, MetricsAppSettings.CatalogPageSizeKey) ?? 500;
             CatalogItemPackageStatsCount = MetricsAppSettings.TryGetIntSetting(appSettingDictionary, MetricsAppSettings.CatalogItemPackageStatsCountKey) ?? 1000;
         }
@@ -92,13 +102,19 @@ namespace NuGet.Services.Metrics.Core
             prefix = segments.Length < 2 ? String.Empty : Path.Combine(segments.Skip(1).ToArray());
         }
 
-        private void CreateIndexesFileInAzure(CloudStorageAccount catalogStorageAccount, string containerName, string prefix, string websiteInstanceId)
+        /// <summary>
+        /// Creates the indexes file called '<websiteinstanceId>.json' under 'indexes' directory
+        /// Note that each instance of the website creates a catalog. And, each catalog is created under (blob) directory named '<websiteInstanceId>'
+        /// And, ach instance of the website also creates a file '<websiteInstance>.json' under (blob) directory named 'indexes'. This is intended to be used by the collector(s)
+        /// </summary>
+        private static void CreateIndexesFile(Storage rootStorageOfAllCatalogs, string websiteInstanceId)
         {
-            CloudBlobContainer container = catalogStorageAccount.CreateCloudBlobClient().GetContainerReference(containerName);
-            container.CreateIfNotExists();
-            var indexesFileBlob = container.GetBlockBlobReference(Path.Combine(prefix, IndexesDirectoryName, websiteInstanceId + ".txt"));
-            Trace.TraceInformation("Created indexes file blob. blobUri" + indexesFileBlob.Uri.ToString());
-            indexesFileBlob.UploadText(String.Empty);
+            JObject jObject = new JObject();
+            jObject.Add(CatalogIndexPathKey, websiteInstanceId);
+            jObject.Add(CatalogLastUpdatedKey, DateTime.UtcNow.ToString("O"));
+            StringStorageContent storageContent = new StringStorageContent(jObject.ToString());
+            Uri indexesFileUri = rootStorageOfAllCatalogs.ResolveUri(Path.Combine(IndexesDirectoryName, websiteInstanceId + ".json"));
+            rootStorageOfAllCatalogs.Save(indexesFileUri, storageContent);
         }
 
         public override async Task AddPackageDownloadStatistics(JObject jObject)

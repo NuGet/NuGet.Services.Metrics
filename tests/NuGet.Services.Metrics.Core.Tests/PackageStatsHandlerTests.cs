@@ -14,7 +14,7 @@ namespace NuGet.Services.Metrics.Core.Tests
         private const string CatalogStorageAccount = @"UseDevelopmentStorage=true;DevelopmentStorageProxyUri=http://localhost:8000";
         private const string CatalogPath = "catalogmetricsstorage";
         private const string CatalogLocalDirectory = @"c:\data\site\catalogmetricsstorage";
-        private const string CatalogIndexUrl = "http://localhost:8000/CatalogMetricsStorage";
+        private const string CatalogBaseAddress = "http://localhost:8000/CatalogMetricsStorage";
         private const int CatalogItemPackageStatsCount = 2;
         private const bool ShouldUseDB = true;
         private const bool ShouldUseCatalog = true;
@@ -57,7 +57,7 @@ namespace NuGet.Services.Metrics.Core.Tests
             appSettingDictionary.Add(MetricsAppSettings.SqlConfigurationKey, ConnectionString);
             appSettingDictionary.Add(MetricsAppSettings.CommandTimeoutKey, CommandTimeout.ToString());
             appSettingDictionary.Add(MetricsAppSettings.CatalogLocalDirectoryKey, CatalogLocalDirectory);
-            appSettingDictionary.Add(MetricsAppSettings.CatalogIndexUrlKey, CatalogIndexUrl);
+            appSettingDictionary.Add(MetricsAppSettings.CatalogBaseAddressKey, CatalogBaseAddress);
 
             new PackageStatsHandler(appSettingDictionary);
         }
@@ -112,7 +112,7 @@ namespace NuGet.Services.Metrics.Core.Tests
             appSettingDictionary.Add(MetricsAppSettings.SqlConfigurationKey, ConnectionString);
             appSettingDictionary.Add(MetricsAppSettings.CommandTimeoutKey, CommandTimeout.ToString());
             appSettingDictionary.Add(MetricsAppSettings.CatalogLocalDirectoryKey, CatalogLocalDirectory);
-            appSettingDictionary.Add(MetricsAppSettings.CatalogIndexUrlKey, CatalogIndexUrl);
+            appSettingDictionary.Add(MetricsAppSettings.CatalogBaseAddressKey, CatalogBaseAddress);
             appSettingDictionary.Add(MetricsAppSettings.CatalogStorageAccountKey, CatalogStorageAccount);
             appSettingDictionary.Add(MetricsAppSettings.CatalogPathKey, CatalogPath);
             appSettingDictionary.Add(MetricsAppSettings.CatalogItemPackageStatsCountKey, CatalogItemPackageStatsCount.ToString());

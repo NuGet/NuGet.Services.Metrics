@@ -20,7 +20,7 @@ namespace NuGet.Services.Metrics.Core
         public const string CatalogStorageAccountKey = "Metrics.CatalogStorageAccount";
         public const string CatalogPathKey = "Metrics.CatalogPath";
         public const string CatalogLocalDirectoryKey = "Metrics.CatalogLocalDirectory";
-        public const string CatalogIndexUrlKey = "Metrics.CatalogIndexUrl";
+        public const string CatalogBaseAddressKey = "Metrics.CatalogBaseAddress";
         public const string CatalogPageSizeKey = "Metrics.CatalogPageSize";
         // TODO : public const string CatalogCommitSizeKey = "Metrics.CatalogCommitSize";
         public const string CatalogItemPackageStatsCountKey = "Metrics.CatalogItemPackageStatsCount";
