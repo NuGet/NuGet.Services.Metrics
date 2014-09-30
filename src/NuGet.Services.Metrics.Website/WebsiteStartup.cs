@@ -1,10 +1,11 @@
-﻿using System;
-using System.Threading.Tasks;
-using Microsoft.Owin;
-using Owin;
+﻿using Microsoft.Owin;
 using NuGet.Services.Metrics.Core;
-using System.Web.Configuration;
+using Owin;
+using System;
 using System.Diagnostics;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Web.Configuration;
 
 [assembly: OwinStartup(typeof(NuGet.Services.Metrics.Website.WebsiteStartup))]
 
@@ -13,25 +14,29 @@ namespace NuGet.Services.Metrics.Website
     public class WebsiteStartup
     {
         private PackageStatsHandler _packageStatsHandler;
-        private const string SqlConfigurationKey = "Metrics.SqlServer";
-        private const string CommandTimeoutKey = "Metrics.CommandTimeout";
         public void Configuration(IAppBuilder appBuilder)
         {
-            var connectionStringSetting = WebConfigurationManager.ConnectionStrings[SqlConfigurationKey];
-            if (connectionStringSetting == null)
+            try
             {
-                throw new ArgumentNullException("Connection String '" + SqlConfigurationKey + "' cannot be found");
-            }
+                var connectionStringSetting = WebConfigurationManager.ConnectionStrings[MetricsAppSettings.SqlConfigurationKey];
+                if (connectionStringSetting == null)
+                {
+                    throw new ArgumentNullException("Connection String '" + MetricsAppSettings.SqlConfigurationKey + "' cannot be found");
+                }
+                WebConfigurationManager.AppSettings[MetricsAppSettings.SqlConfigurationKey] = connectionStringSetting.ConnectionString;
 
-            var commandTimeoutString = WebConfigurationManager.AppSettings[CommandTimeoutKey];
-            int commandTimeout = 0;
-            if (!String.IsNullOrEmpty(commandTimeoutString))
+                var appSettingDictionary = WebConfigurationManager.AppSettings
+                                                .Cast<string>()
+                                                .Select(s => new { Key = s, Value = WebConfigurationManager.AppSettings[s] })
+                                                .ToDictionary(p => p.Key, p => p.Value);
+                _packageStatsHandler = new PackageStatsHandler(appSettingDictionary);
+                appBuilder.Run(Invoke);
+                Trace.TraceInformation("Started the website instance successfully");
+            }
+            catch (Exception ex)
             {
-                Int32.TryParse(commandTimeoutString, out commandTimeout);
+                Trace.TraceError(ex.ToString());
             }
-
-            _packageStatsHandler = new PackageStatsHandler(connectionStringSetting.ConnectionString, commandTimeout);
-            appBuilder.Run(Invoke);
         }
 
         private async Task Invoke(IOwinContext context)
