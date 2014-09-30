@@ -24,9 +24,12 @@ namespace NuGet.Services.Metrics.Core
         private static int CatalogWriterGate = 0; // When the CatalogWriterGate is 0, the catalog is open for writing. If 1, it is closed for writing
         private static ConcurrentQueue<JToken> CurrentStatsQueue = new ConcurrentQueue<JToken>();
         private static ConcurrentQueue<ConcurrentQueue<JToken>> StatsQueueOfQueues = new ConcurrentQueue<ConcurrentQueue<JToken>>();
+        private static Timer CatalogFlushTimer;
+
         private Storage CatalogStorage { get; set; }
         private int CatalogPageSize { get; set; }
         private int CatalogItemPackageStatsCount { get; set; }
+        public int CatalogFlushTimePeriod { get; private set; }
 
         private static readonly string PackageExistenceCheckQuery = @"
                 SELECT		p.[Key],
@@ -49,6 +52,10 @@ namespace NuGet.Services.Metrics.Core
 
         public CatalogMetricsStorage(IDictionary<string, string> appSettingDictionary)
         {
+            // CatalogFlushTimePeriod is the time for which the service may be idle before stats is memory is flushed into catalog. Default value is 1 minute or 60000 ms
+            CatalogFlushTimePeriod = MetricsAppSettings.TryGetIntSetting(appSettingDictionary, MetricsAppSettings.CatalogFlushTimePeriod) ?? 60000;
+            CatalogFlushTimer = new Timer(TimerTask, this, CatalogFlushTimePeriod, CatalogFlushTimePeriod);
+
             string connectionString = MetricsAppSettings.GetSetting(appSettingDictionary, MetricsAppSettings.SqlConfigurationKey);
             int commandTimeout = MetricsAppSettings.TryGetIntSetting(appSettingDictionary, MetricsAppSettings.CommandTimeoutKey) ?? 0;
 
@@ -171,9 +178,12 @@ namespace NuGet.Services.Metrics.Core
             {
                 // It is possible that 2 or more threads have entered this point. In that case, 1 or more empty CurrentStatsQueue(s) will get enqueued to StatsQueueOfQueues
                 // This is harmless, since during commit in CommitToCatalog, empty catalog items can be ignored easily
-                StatsQueueOfQueues.Enqueue(Interlocked.Exchange(ref CurrentStatsQueue, new ConcurrentQueue<JToken>()));
                 Task.Run(() => CommitToCatalog());
             }
+
+            // Reset the timer here since there was a download
+            // If there was no download for 'CatalogFlushTimePeriod' ms, the service is considered idle and commit to catalog is forced
+            CatalogFlushTimer.Change(CatalogFlushTimePeriod, CatalogFlushTimePeriod);
         }
 
         private void CommitToCatalog()
@@ -184,6 +194,7 @@ namespace NuGet.Services.Metrics.Core
             // When 2 or more threads reach this point, while the gate is open, only 1 thread will enter. Rest will find that the gate is already closed and leave
             if (Interlocked.Equals(Interlocked.Exchange(ref CatalogWriterGate, 1), 0))
             {
+                StatsQueueOfQueues.Enqueue(Interlocked.Exchange(ref CurrentStatsQueue, new ConcurrentQueue<JToken>()));
                 try
                 {
                     using (CatalogWriter writer = new CatalogWriter(CatalogStorage, new CatalogContext(), CatalogPageSize))
@@ -225,6 +236,16 @@ namespace NuGet.Services.Metrics.Core
             else
             {
                 Trace.WriteLine("Another thread is committing to catalog. Skipping");
+            }
+        }
+
+        private static void TimerTask(object timerTaskObject)
+        {
+            if (timerTaskObject is CatalogMetricsStorage)
+            {
+                var catalogMetricsStorage = (CatalogMetricsStorage)timerTaskObject;
+                Trace.TraceWarning("Service has been idle for {0} ms", catalogMetricsStorage.CatalogFlushTimePeriod);
+                catalogMetricsStorage.CommitToCatalog();
             }
         }
     }

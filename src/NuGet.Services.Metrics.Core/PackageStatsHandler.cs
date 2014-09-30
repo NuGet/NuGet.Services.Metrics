@@ -23,6 +23,7 @@ namespace NuGet.Services.Metrics.Core
         public const string CatalogBaseAddressKey = "Metrics.CatalogBaseAddress";
         public const string CatalogPageSizeKey = "Metrics.CatalogPageSize";
         // TODO : public const string CatalogCommitSizeKey = "Metrics.CatalogCommitSize";
+        public const string CatalogFlushTimePeriod = "Metrics.CatalogFlushTimePeriod";
         public const string CatalogItemPackageStatsCountKey = "Metrics.CatalogItemPackageStatsCount";
         public const string ShouldUseCatalog = "Metrics.ShouldUseCatalog";
         public const string ShouldUseDB = "Metrics.ShouldUseDB";
