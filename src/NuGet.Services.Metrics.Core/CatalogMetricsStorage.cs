@@ -173,13 +173,14 @@ namespace NuGet.Services.Metrics.Core
         private void EnqueueStats(JToken packageStatsCatalogItemRow)
         {
             Trace.WriteLine("AddToCatalog ThreadId:" + Environment.CurrentManagedThreadId);
-            CurrentStatsQueue.Enqueue(packageStatsCatalogItemRow);
             if(CurrentStatsQueue.Count >= CatalogItemPackageStatsCount)
             {
                 // It is possible that 2 or more threads have entered this point. In that case, 1 or more empty CurrentStatsQueue(s) will get enqueued to StatsQueueOfQueues
                 // This is harmless, since during commit in CommitToCatalog, empty catalog items can be ignored easily
+                StatsQueueOfQueues.Enqueue(Interlocked.Exchange(ref CurrentStatsQueue, new ConcurrentQueue<JToken>()));
                 Task.Run(() => CommitToCatalog());
             }
+            CurrentStatsQueue.Enqueue(packageStatsCatalogItemRow);
 
             // Reset the timer here since there was a download
             // If there was no download for 'CatalogFlushTimePeriod' ms, the service is considered idle and commit to catalog is forced
@@ -194,7 +195,6 @@ namespace NuGet.Services.Metrics.Core
             // When 2 or more threads reach this point, while the gate is open, only 1 thread will enter. Rest will find that the gate is already closed and leave
             if (Interlocked.Equals(Interlocked.Exchange(ref CatalogWriterGate, 1), 0))
             {
-                StatsQueueOfQueues.Enqueue(Interlocked.Exchange(ref CurrentStatsQueue, new ConcurrentQueue<JToken>()));
                 try
                 {
                     using (CatalogWriter writer = new CatalogWriter(CatalogStorage, new CatalogContext(), CatalogPageSize))
@@ -245,6 +245,7 @@ namespace NuGet.Services.Metrics.Core
             {
                 var catalogMetricsStorage = (CatalogMetricsStorage)timerTaskObject;
                 Trace.TraceWarning("Service has been idle for {0} ms", catalogMetricsStorage.CatalogFlushTimePeriod);
+                StatsQueueOfQueues.Enqueue(Interlocked.Exchange(ref CurrentStatsQueue, new ConcurrentQueue<JToken>()));
                 catalogMetricsStorage.CommitToCatalog();
             }
         }
