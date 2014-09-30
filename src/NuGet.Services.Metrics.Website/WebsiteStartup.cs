@@ -16,19 +16,27 @@ namespace NuGet.Services.Metrics.Website
         private PackageStatsHandler _packageStatsHandler;
         public void Configuration(IAppBuilder appBuilder)
         {
-            var connectionStringSetting = WebConfigurationManager.ConnectionStrings[MetricsAppSettings.SqlConfigurationKey];
-            if (connectionStringSetting == null)
+            try
             {
-                throw new ArgumentNullException("Connection String '" + MetricsAppSettings.SqlConfigurationKey + "' cannot be found");
-            }
-            WebConfigurationManager.AppSettings[MetricsAppSettings.SqlConfigurationKey] = connectionStringSetting.ConnectionString;
+                var connectionStringSetting = WebConfigurationManager.ConnectionStrings[MetricsAppSettings.SqlConfigurationKey];
+                if (connectionStringSetting == null)
+                {
+                    throw new ArgumentNullException("Connection String '" + MetricsAppSettings.SqlConfigurationKey + "' cannot be found");
+                }
+                WebConfigurationManager.AppSettings[MetricsAppSettings.SqlConfigurationKey] = connectionStringSetting.ConnectionString;
 
-            var appSettingDictionary = WebConfigurationManager.AppSettings
-                                            .Cast<string>()
-                                            .Select(s => new { Key = s, Value = WebConfigurationManager.AppSettings[s] })
-                                            .ToDictionary(p => p.Key, p => p.Value);
-            _packageStatsHandler = new PackageStatsHandler(appSettingDictionary);
-            appBuilder.Run(Invoke);
+                var appSettingDictionary = WebConfigurationManager.AppSettings
+                                                .Cast<string>()
+                                                .Select(s => new { Key = s, Value = WebConfigurationManager.AppSettings[s] })
+                                                .ToDictionary(p => p.Key, p => p.Value);
+                _packageStatsHandler = new PackageStatsHandler(appSettingDictionary);
+                appBuilder.Run(Invoke);
+                Trace.TraceInformation("Started the website instance successfully");
+            }
+            catch (Exception ex)
+            {
+                Trace.TraceError(ex.ToString());
+            }
         }
 
         private async Task Invoke(IOwinContext context)

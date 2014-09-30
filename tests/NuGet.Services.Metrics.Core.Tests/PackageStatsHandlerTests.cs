@@ -19,6 +19,11 @@ namespace NuGet.Services.Metrics.Core.Tests
         private const bool ShouldUseDB = true;
         private const bool ShouldUseCatalog = true;
 
+        public PackageStatsHandlerTests()
+        {
+            Environment.SetEnvironmentVariable(CatalogMetricsStorage.WEBSITE_INSTANCE_ID, "A1B2C3D4");
+        }
+
         [Fact]
         public void PackageStatsHandlerConfigNothing()
         {
