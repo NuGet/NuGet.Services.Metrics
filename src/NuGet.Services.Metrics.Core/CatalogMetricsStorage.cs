@@ -197,7 +197,7 @@ namespace NuGet.Services.Metrics.Core
             {
                 try
                 {
-                    using (CatalogWriter writer = new CatalogWriter(CatalogStorage, new CatalogContext(), CatalogPageSize))
+                    using (AppendOnlyCatalogWriter writer = new AppendOnlyCatalogWriter(CatalogStorage, new CatalogContext(), CatalogPageSize))
                     {
                         ConcurrentQueue<JToken> headStatsQueue;
                         while (StatsQueueOfQueues.TryDequeue(out headStatsQueue))
