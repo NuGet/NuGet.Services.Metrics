@@ -18,7 +18,8 @@ namespace MetricsTestConsoleApp
         private const string CatalogPath = "catalogmetricsstorage-consolemetrics";
         private const string CatalogLocalDirectory = @"c:\data\site\catalogmetricsstorage-consolemetrics";
         private const string CatalogIndexUrl = "http://localhost:8000/CatalogMetricsStorage";
-        private const int CatalogItemPackageStatsCount = 1000;
+        private const int CatalogItemPackageStatsCount = 100;
+        private const int CatalogPageSize = 10;
         private const bool ShouldUseDB = false;
         private const bool ShouldUseCatalog = true;
 
@@ -40,6 +41,7 @@ namespace MetricsTestConsoleApp
             appSettingDictionary.Add(MetricsAppSettings.CatalogBaseAddressKey, CatalogIndexUrl);
             appSettingDictionary.Add(MetricsAppSettings.CatalogStorageAccountKey, CatalogStorageAccount);
             appSettingDictionary.Add(MetricsAppSettings.CatalogPathKey, CatalogPath);
+            appSettingDictionary.Add(MetricsAppSettings.CatalogPageSizeKey, CatalogPageSize.ToString());
             appSettingDictionary.Add(MetricsAppSettings.CatalogItemPackageStatsCountKey, CatalogItemPackageStatsCount.ToString());
 
             _packageStatsHandler = new PackageStatsHandler(appSettingDictionary);
