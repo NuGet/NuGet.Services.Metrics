@@ -2,6 +2,8 @@
 
 This repo contains NuGet's Metrics Service.
 
+***Service is deprecated***
+
 ## Feedback
 
 If you're having trouble with the NuGet.org Website, file a bug on the [NuGet Gallery Issue Tracker](https://github.com/nuget/NuGetGallery/issues). 
